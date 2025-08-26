@@ -1,5 +1,6 @@
-# Admin system (deploy separately later)
-admin-system/
+# Admin system environment files
+admin-system/.env
+admin-system/node_modules/
 
 # Node modules
 node_modules/

@@ -18,7 +18,8 @@
       "Bash(npm install)",
       "Bash(node server.js)",
       "Bash(node:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Read(/C:\\Program Files\\PostgreSQL\\17\\data/**)"
     ],
     "deny": [],
     "ask": []
