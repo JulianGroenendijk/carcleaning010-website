@@ -119,7 +119,7 @@ function initBasicContactForm() {
             });
             
             // Submit to admin API
-            fetch('https://carcleaning010.nl/api/website-leads', {
+            fetch('https://carcleaning010.nl/admin/api/website-leads', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -281,7 +281,7 @@ function initContactForm() {
             
             // Submit to admin API
             try {
-                const response = await fetch('https://carcleaning010.nl/api/website-leads', {
+                const response = await fetch('https://carcleaning010.nl/admin/api/website-leads', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
