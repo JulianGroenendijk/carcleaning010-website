@@ -140,8 +140,8 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             
             const submitButton = contactForm.querySelector('.submit-button');
-            const buttonText = submitButton?.querySelector('span');
-            const buttonLoading = submitButton?.querySelector('.button-loading');
+            const buttonText = submitButton ? submitButton.querySelector('span') : null;
+            const buttonLoading = submitButton ? submitButton.querySelector('.button-loading') : null;
             
             if (submitButton && buttonText && buttonLoading) {
                 // Show loading state
@@ -173,6 +173,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Voorkeurstijd: ' + formData.get('preferredTime')
                 ].filter(Boolean).join('\n')
             };
+            
+            console.log('Sending form data:', formObject);
             
             // Submit to admin API
             fetch('https://carcleaning010.nl/admin/api/website-leads', {
