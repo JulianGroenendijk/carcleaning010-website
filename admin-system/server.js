@@ -30,7 +30,7 @@ app.use(helmet({
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
         ? ['https://carcleaning010.nl', 'https://www.carcleaning010.nl']
-        : ['http://localhost:3000', 'http://localhost:3001'],
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080'],
     credentials: true
 }));
 

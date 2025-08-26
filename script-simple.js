@@ -152,18 +152,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get form data and map field names to API format
             const formData = new FormData(contactForm);
-            const formObject = {
+            const rawObject = {
                 first_name: formData.get('firstName'),
                 last_name: formData.get('lastName'),
                 email: formData.get('email'),
                 phone: formData.get('phone'),
-                service_type: Array.from(formData.getAll('services[]')).join(', '),
+                service_type: Array.from(formData.getAll('services[]')).join(', ') || undefined,
                 vehicle_info: [
                     formData.get('carBrand'),
                     formData.get('carModel'),
                     formData.get('carYear'),
                     formData.get('carColor')
-                ].filter(Boolean).join(', '),
+                ].filter(Boolean).join(', ') || undefined,
                 message: [
                     formData.get('message'),
                     'Locatie: ' + formData.get('city') + (formData.get('postcode') ? ' (' + formData.get('postcode') + ')' : ''),
@@ -171,8 +171,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Voertuig staat: ' + formData.get('carCondition'),
                     'Gewenste datum: ' + formData.get('preferredDate'),
                     'Voorkeurstijd: ' + formData.get('preferredTime')
-                ].filter(Boolean).join('\n')
+                ].filter(Boolean).join('\n') || undefined
             };
+            
+            // Remove empty/null/undefined fields
+            const formObject = {};
+            Object.keys(rawObject).forEach(key => {
+                if (rawObject[key] && rawObject[key] !== '') {
+                    formObject[key] = rawObject[key];
+                }
+            });
             
             console.log('Sending form data:', formObject);
             
@@ -187,10 +195,21 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(function(response) {
                 console.log('API Response status:', response.status);
-                console.log('API Response headers:', response.headers);
+                console.log('API Response ok:', response.ok);
                 
                 if (!response.ok) {
-                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                    // Try to get error message from response
+                    return response.text().then(function(text) {
+                        console.log('API Error response text:', text);
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(text);
+                            console.log('API Error response data:', errorData);
+                            throw new Error('HTTP ' + response.status + ': ' + (errorData.error || response.statusText));
+                        } catch (e) {
+                            throw new Error('HTTP ' + response.status + ': ' + response.statusText + ' - ' + text);
+                        }
+                    });
                 }
                 
                 return response.json();

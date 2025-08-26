@@ -8,7 +8,7 @@ const router = express.Router();
 // Rate limiting specifiek voor website leads (strenger)
 const leadLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 3, // Maximum 3 leads per 15 minuten per IP
+    max: process.env.NODE_ENV === 'production' ? 3 : 100, // 100 for dev, 3 for production
     message: {
         error: 'Te veel aanvragen verzonden. Probeer het over 15 minuten opnieuw.'
     },
