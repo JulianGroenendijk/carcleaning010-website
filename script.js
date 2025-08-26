@@ -118,9 +118,27 @@ function initBasicContactForm() {
                 formObject[key] = value;
             });
             
-            // Simulate form submission (replace with actual submission logic)
-            alert('Bedankt voor uw bericht! Wij nemen zo spoedig mogelijk contact met u op.');
-            basicContactForm.reset();
+            // Submit to admin API
+            fetch('https://carcleaning010.nl/api/website-leads', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formObject)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.message) {
+                    alert(result.message);
+                } else {
+                    alert('Bedankt voor uw bericht! Wij nemen zo spoedig mogelijk contact met u op.');
+                }
+                basicContactForm.reset();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Er is een fout opgetreden. Probeer het opnieuw of neem direct contact op.');
+            });
         });
     } catch (error) {
         console.warn('Basic contact form initialization error:', error);
@@ -261,12 +279,25 @@ function initContactForm() {
                 }
             });
             
-            // Simulate form submission (replace with actual submission logic)
+            // Submit to admin API
             try {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Success message
-                alert('Bedankt voor uw aanvraag! Wij nemen binnen 24 uur contact met u op.');
+                const response = await fetch('https://carcleaning010.nl/api/website-leads', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formObject)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Success message
+                    alert(result.message || 'Bedankt voor uw aanvraag! Wij nemen binnen 24 uur contact met u op.');
+                } else {
+                    // Error message from API
+                    throw new Error(result.error || 'Er is een fout opgetreden');
+                }
                 contactForm.reset();
                 
             } catch (error) {
