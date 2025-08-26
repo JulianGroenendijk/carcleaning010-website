@@ -51,7 +51,11 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
+// Static files - configured for /admin reverse proxy
+app.use('/admin/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/admin', express.static(path.join(__dirname, 'public')));
+
+// Fallback for direct access (development)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
