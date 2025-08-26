@@ -132,15 +132,81 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Contact forms
-    const contactForms = document.querySelectorAll('form');
-    contactForms.forEach(function(form) {
-        form.addEventListener('submit', function(e) {
+    // Contact forms - Real API integration
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+        console.log('Contact form found');
+        contactForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            alert('Bedankt voor uw bericht! Wij nemen zo spoedig mogelijk contact met u op.');
-            form.reset();
+            
+            const submitButton = contactForm.querySelector('.submit-button');
+            const buttonText = submitButton?.querySelector('span');
+            const buttonLoading = submitButton?.querySelector('.button-loading');
+            
+            if (submitButton && buttonText && buttonLoading) {
+                // Show loading state
+                buttonText.style.display = 'none';
+                buttonLoading.style.display = 'flex';
+                submitButton.disabled = true;
+            }
+            
+            // Get form data and map field names to API format
+            const formData = new FormData(contactForm);
+            const formObject = {
+                first_name: formData.get('firstName'),
+                last_name: formData.get('lastName'),
+                email: formData.get('email'),
+                phone: formData.get('phone'),
+                service_type: Array.from(formData.getAll('services[]')).join(', '),
+                vehicle_info: [
+                    formData.get('carBrand'),
+                    formData.get('carModel'),
+                    formData.get('carYear'),
+                    formData.get('carColor')
+                ].filter(Boolean).join(', '),
+                message: [
+                    formData.get('message'),
+                    'Locatie: ' + formData.get('city') + (formData.get('postcode') ? ' (' + formData.get('postcode') + ')' : ''),
+                    'Service locatie: ' + formData.get('serviceLocation'),
+                    'Voertuig staat: ' + formData.get('carCondition'),
+                    'Gewenste datum: ' + formData.get('preferredDate'),
+                    'Voorkeurstijd: ' + formData.get('preferredTime')
+                ].filter(Boolean).join('\n')
+            };
+            
+            // Submit to admin API
+            fetch('https://carcleaning010.nl/admin/api/website-leads', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formObject)
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(result) {
+                if (result.message) {
+                    alert(result.message);
+                } else {
+                    alert('Bedankt voor uw aanvraag! Wij nemen binnen 24 uur contact met u op.');
+                }
+                contactForm.reset();
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+                alert('Er is een fout opgetreden. Probeer het opnieuw of neem direct contact op via WhatsApp.');
+            })
+            .finally(function() {
+                // Reset button state
+                if (submitButton && buttonText && buttonLoading) {
+                    buttonText.style.display = 'inline';
+                    buttonLoading.style.display = 'none';
+                    submitButton.disabled = false;
+                }
+            });
         });
-    });
+    }
     
     // Scroll animations
     const observer = new IntersectionObserver(function(entries) {
