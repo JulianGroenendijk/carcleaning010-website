@@ -1,0 +1,24 @@
+# Admin system (deploy separately later)
+admin-system/
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# System files
+.DS_Store
+Thumbs.db
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projecten - Portfolio Showcase | Carcleaning010</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="logo">
+                    <a href="index.html"><h1>Carcleaning010</h1></a>
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="over-ons.html">Over Mij</a></li>
+                    <li><a href="diensten.html">Diensten</a></li>
+                    <li><a href="projecten.html" class="active">Projecten</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+                <div class="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Recente Projecten</h1>
+            <p>Een selectie van onze mooiste transformaties</p>
+        </div>
+    </section>
+
+    <!-- Portfolio Filter -->
+    <section class="portfolio-filter">
+        <div class="container">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">Alle Projecten</button>
+                <button class="filter-btn" data-filter="premium">Premium Cars</button>
+                <button class="filter-btn" data-filter="classic">Klassiekers</button>
+                <button class="filter-btn" data-filter="daily">Dagelijks Gebruik</button>
+                <button class="filter-btn" data-filter="commercial">Commercieel</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Portfolio Grid -->
+    <section class="portfolio-grid-section">
+        <div class="container">
+            <div class="portfolio-grid">
+                
+                <!-- Project 1 -->
+                <div class="portfolio-item" data-category="premium">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/bmw-project-800x600.jpg" alt="BMW M3 Complete Detailing">
+                            <div class="portfolio-overlay">
+                                <h3>BMW M3</h3>
+                                <p>Complete Signature Detail</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Premium Detailing</span>
+                                <span class="project-location">Rotterdam</span>
+                            </div>
+                            <p class="project-description">"Fantastische service en resultaat. Mijn BMW ziet er beter uit dan toen hij nieuw was. Zeer professioneel werk."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 2 -->
+                <div class="portfolio-item" data-category="premium">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/paint-correction-600x400.jpg" alt="Audi RS6 Paint Correction">
+                            <div class="portfolio-overlay">
+                                <h3>Audi RS6</h3>
+                                <p>Paint Correction + Ceramic Coating</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Paint Correction</span>
+                                <span class="project-location">Den Haag</span>
+                            </div>
+                            <p class="project-description">"Het wachten waard voor dit niveau van kwaliteit. Ongelooflijk resultaat en perfecte afwerking."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 3 -->
+                <div class="portfolio-item" data-category="classic">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/porsche-project-800x600.jpg" alt="Porsche 911 Classic Restoration">
+                            <div class="portfolio-overlay">
+                                <h3>Porsche 911 (1987)</h3>
+                                <p>Classic Car Restoration Detail</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Classic Restoration</span>
+                                <span class="project-location">Amsterdam</span>
+                            </div>
+                            <p class="project-description">"Mijn klassieke 911 heeft zijn oorspronkelijke glans terug. Geweldig vakmanschap en passie voor auto's."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 4 -->
+                <div class="portfolio-item" data-category="daily">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/golf-project-800x600.jpg" alt="Volkswagen Golf GTI Detailing">
+                            <div class="portfolio-overlay">
+                                <h3>Volkswagen Golf GTI</h3>
+                                <p>Standard Detail Package</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Standard Detailing</span>
+                                <span class="project-location">Utrecht</span>
+                            </div>
+                            <p class="project-description">"Geweldige service en een perfecte prijs-kwaliteit verhouding. Mijn Golf ziet er weer uit als nieuw!"</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 5 -->
+                <div class="portfolio-item" data-category="premium">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/mercedes-project-800x600.jpg" alt="Mercedes AMG GT Ceramic Coating">
+                            <div class="portfolio-overlay">
+                                <h3>Mercedes AMG GT</h3>
+                                <p>Ceramic Coating Treatment</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Ceramic Coating</span>
+                                <span class="project-location">Eindhoven</span>
+                            </div>
+                            <p class="project-description">"De keramische coating is fantastisch! Water parelt er gewoon vanaf en de auto is zo veel makkelijker schoon te houden."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 6 -->
+                <div class="portfolio-item" data-category="commercial">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/van-project-800x600.jpg" alt="Commercial Fleet Detailing">
+                            <div class="portfolio-overlay">
+                                <h3>Bedrijfswagen Vloot</h3>
+                                <p>Fleet Detailing Service</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Commercial Fleet</span>
+                                <span class="project-location">Tilburg</span>
+                            </div>
+                            <p class="project-description">"Onze complete vloot bedrijfswagens professioneel verzorgd. Snelle service en perfecte resultaten."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 7 -->
+                <div class="portfolio-item" data-category="daily">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/honda-project-800x600.jpg" alt="Honda Civic Interior Deep Clean">
+                            <div class="portfolio-overlay">
+                                <h3>Honda Civic</h3>
+                                <p>Interior Deep Clean</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Interior Detailing</span>
+                                <span class="project-location">Groningen</span>
+                            </div>
+                            <p class="project-description">"Het interieur zag er verschrikkelijk uit, maar nu is het weer helemaal fris en schoon. Echt vakwerk!"</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 8 -->
+                <div class="portfolio-item" data-category="premium">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/tesla-project-800x600.jpg" alt="Tesla Model S Paint Protection">
+                            <div class="portfolio-overlay">
+                                <h3>Tesla Model S</h3>
+                                <p>Paint Protection Film</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Paint Protection</span>
+                                <span class="project-location">Almere</span>
+                            </div>
+                            <p class="project-description">"De PPF installatie is perfect uitgevoerd. Onzichtbare bescherming voor mijn nieuwe Tesla."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 9 -->
+                <div class="portfolio-item" data-category="classic">
+                    <div class="portfolio-card">
+                        <div class="portfolio-image">
+                            <img src="images/bmw-project-800x600.jpg" alt="Jaguar E-Type Restoration">
+                            <div class="portfolio-overlay">
+                                <h3>Jaguar E-Type (1967)</h3>
+                                <p>Complete Restoration Detail</p>
+                                <div class="project-rating">⭐⭐⭐⭐⭐</div>
+                            </div>
+                        </div>
+                        <div class="portfolio-info">
+                            <div class="project-details">
+                                <span class="project-type">Classic Restoration</span>
+                                <span class="project-location">Maastricht</span>
+                            </div>
+                            <p class="project-description">"Mijn E-Type is weer in ere hersteld. De passie en kennis van klassiekers is duidelijk aanwezig."</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials-section">
+        <div class="container">
+            <h2>Wat Klanten Zeggen</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <p>"Carcleaning010 heeft mijn BMW weer tot leven gebracht. Het resultaat is werkelijk spectaculair en de service is top."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <strong>Marco van der Berg</strong>
+                        <span>BMW M3 Eigenaar</span>
+                    </div>
+                    <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                </div>
+
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <p>"Professionele service en fantastische resultaten. Jordy neemt de tijd voor elk detail en dat merk je in het eindresultaat."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <strong>Lisa Hendricks</strong>
+                        <span>Bedrijfsleidster</span>
+                    </div>
+                    <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                </div>
+
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <p>"De keramische coating is echt fantastisch. Water parelt gewoon van de lak af en mijn auto blijft veel langer schoon."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <strong>Thomas Janssen</strong>
+                        <span>Mercedes AMG Eigenaar</span>
+                    </div>
+                    <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Before/After Section -->
+    <section class="before-after-section">
+        <div class="container">
+            <h2>Voor & Na Resultaten</h2>
+            <div class="before-after-grid">
+                <div class="before-after-item">
+                    <h3>Paint Correction - Audi A4</h3>
+                    <div class="comparison">
+                        <div class="before">
+                            <img src="images/before-paint-800x400.jpg" alt="Voor Paint Correction">
+                            <span class="label">Voor</span>
+                        </div>
+                        <div class="after">
+                            <img src="images/after-paint-800x400.jpg" alt="Na Paint Correction">
+                            <span class="label">Na</span>
+                        </div>
+                    </div>
+                    <p>Volledige paint correction met 3-staps proces. Alle krassen en swirl marks professioneel weggewerkt.</p>
+                </div>
+
+                <div class="before-after-item">
+                    <h3>Interior Deep Clean - BMW X5</h3>
+                    <div class="comparison">
+                        <div class="before">
+                            <img src="images/interior-before-800x400.jpg" alt="Voor Interior Cleaning">
+                            <span class="label">Voor</span>
+                        </div>
+                        <div class="after">
+                            <img src="images/interior-after-800x400.jpg" alt="Na Interior Cleaning">
+                            <span class="label">Na</span>
+                        </div>
+                    </div>
+                    <p>Complete interieur transformatie met diepgaande reiniging en professionele behandeling.</p>
+                </div>
+
+                <div class="before-after-item">
+                    <h3>Headlight Restoration - Volkswagen Golf</h3>
+                    <div class="comparison">
+                        <div class="before">
+                            <img src="images/headlights-before-800x400.jpg" alt="Voor Headlight Restoration">
+                            <span class="label">Voor</span>
+                        </div>
+                        <div class="after">
+                            <img src="images/headlights-after-800x400.jpg" alt="Na Headlight Restoration">
+                            <span class="label">Na</span>
+                        </div>
+                    </div>
+                    <p>Professionele koplampen restauratie voor betere zichtbaarheid en een frissere uitstraling.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Wilt U Ook Zo'n Resultaat?</h2>
+            <p>Laat uw auto professioneel detailen en ervaar zelf wat Carcleaning010 voor uw voertuig kan betekenen.</p>
+            <div class="cta-buttons">
+                <a href="contact.html" class="cta-button primary">Plan Uw Project</a>
+                <a href="diensten.html" class="cta-button secondary">Bekijk Onze Diensten</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Carcleaning010</h3>
+                    <p>Premium auto detailing met aandacht voor elk detail</p>
+                    <div class="social-links">
+                        <a href="#" aria-label="Instagram">IG</a>
+                        <a href="https://wa.me/31636529793" aria-label="WhatsApp">WA</a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <p>T. +31 6 36 52 97 93</p>
+                    <p>W. carcleaning010.nl</p>
+                    <p>E. info@carcleaning010.nl</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Projecten</h4>
+                    <ul>
+                        <li><a href="#premium">Premium Cars</a></li>
+                        <li><a href="#classic">Klassieke Auto's</a></li>
+                        <li><a href="#daily">Dagelijks Gebruik</a></li>
+                        <li><a href="#commercial">Commercieel</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Navigatie</h4>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="over-ons.html">Over Ons</a></li>
+                        <li><a href="diensten.html">Diensten</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Carcleaning010. Alle rechten voorbehouden.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Button -->
+    <div class="whatsapp-button">
+        <a href="https://wa.me/31636529793" target="_blank">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+        </a>
+    </div>
+
+    <script src="script-simple.js"></script>
+</body>
+</html>

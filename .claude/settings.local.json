@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.carcleaning010.nl)",
+      "Bash(python:*)",
+      "WebFetch(domain:steenisdetailing.nl)",
+      "WebFetch(domain:steenisdetailing.nl)",
+      "WebFetch(domain:steenisdetailing.nl)",
+      "WebFetch(domain:steenisdetailing.nl)",
+      "WebFetch(domain:steenisdetailing.nl)",
+      "Bash(dir)",
+      "Bash(dir:*)",
+      "Bash(del op-locatie.html)",
+      "WebFetch(domain:unsplash.com)",
+      "Bash(curl:*)",
+      "WebFetch(domain:pixabay.com)",
+      "Bash(chmod:*)",
+      "Bash(npm install)",
+      "Bash(node server.js)",
+      "Bash(node:*)",
+      "Bash(psql:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
