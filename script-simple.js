@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Sending form data:', formObject);
             
             // Submit to admin API
+            console.log('Starting API call to:', 'https://carcleaning010.nl/admin/api/website-leads');
             fetch('https://carcleaning010.nl/admin/api/website-leads', {
                 method: 'POST',
                 headers: {
@@ -185,9 +186,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify(formObject)
             })
             .then(function(response) {
+                console.log('API Response status:', response.status);
+                console.log('API Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                }
+                
                 return response.json();
             })
             .then(function(result) {
+                console.log('API Success result:', result);
                 if (result.message) {
                     alert(result.message);
                 } else {
@@ -196,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 contactForm.reset();
             })
             .catch(function(error) {
-                console.error('Error:', error);
+                console.error('API Error:', error);
                 alert('Er is een fout opgetreden. Probeer het opnieuw of neem direct contact op via WhatsApp.');
             })
             .finally(function() {
