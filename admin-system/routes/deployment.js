@@ -275,8 +275,7 @@ router.get('/status', async (req, res) => {
             deployment: {
                 timestamp: new Date().toISOString(),
                 environment: process.env.NODE_ENV || 'development',
-                commit: process.env.GIT_COMMIT || 'unknown',
-                test: 'deployment-test-working'
+                commit: process.env.GIT_COMMIT || 'unknown'
             }
         });
     } catch (error) {

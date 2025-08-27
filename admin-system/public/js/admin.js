@@ -1304,7 +1304,7 @@ class AdminApp {
             <tr>
                 <td><strong>#${invoice.invoice_number || invoice.id}</strong></td>
                 <td>${invoice.customer_name || 'Onbekend'}</td>
-                <td class="text-currency">€${(invoice.total_amount || 0).toFixed(2)}</td>
+                <td class="text-currency">€${(parseFloat(invoice.total_amount) || 0).toFixed(2)}</td>
                 <td>
                     <span class="badge status-${invoice.status || 'draft'}">
                         ${this.getInvoiceStatusText(invoice.status || 'draft')}
