@@ -2,6 +2,9 @@
 
 class AdminApp {
     constructor() {
+        // Base URL for production deployment
+        this.baseURL = window.location.pathname.includes('/admin') ? '/admin' : '';
+        
         this.token = localStorage.getItem('admin_token');
         this.user = null;
         this.currentSection = 'dashboard';
@@ -191,7 +194,7 @@ class AdminApp {
         errorDiv.classList.add('d-none');
 
         try {
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch(this.baseURL + '/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -485,7 +488,7 @@ class AdminApp {
         
         try {
             // Fetch quotes from API
-            const response = await fetch('/api/quotes', {
+            const response = await fetch(this.baseURL + '/api/quotes', {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -699,7 +702,7 @@ class AdminApp {
     async viewQuote(id) {
         console.log('👁️ View quote:', id);
         try {
-            const response = await fetch(`/api/quotes/${id}`, {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -721,7 +724,7 @@ class AdminApp {
     async editQuote(id) {
         console.log('✏️ Edit quote:', id);
         try {
-            const response = await fetch(`/api/quotes/${id}`, {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -940,7 +943,7 @@ class AdminApp {
         const data = Object.fromEntries(formData);
         
         try {
-            const response = await fetch(`/api/quotes/${id}`, {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
@@ -974,7 +977,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('Downloaden...');
         
         try {
-            const response = await fetch(`/api/quotes/${id}/pdf`, {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}/pdf`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.token}`
@@ -1013,7 +1016,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('PDF openen...');
         
         try {
-            const response = await fetch(`/api/quotes/${id}/pdf`, {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}/pdf`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.token}`
@@ -1073,7 +1076,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('Factuur aanmaken...');
         
         try {
-            const response = await fetch(`/api/quotes/${id}/convert-to-invoice`, {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}/convert-to-invoice`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
@@ -1166,7 +1169,7 @@ class AdminApp {
         
         try {
             // Fetch invoices from API
-            const response = await fetch('/api/invoices', {
+            const response = await fetch(this.baseURL + '/api/invoices', {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -2612,7 +2615,7 @@ class AdminApp {
 
     async loadSystemSettings() {
         try {
-            const response = await fetch('/api/settings', {
+            const response = await fetch(this.baseURL + '/api/settings', {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -2674,7 +2677,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('Instellingen opslaan...');
         
         try {
-            const response = await fetch('/api/settings', {
+            const response = await fetch(this.baseURL + '/api/settings', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
@@ -2715,7 +2718,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('Bedrijfsinfo opslaan...');
         
         try {
-            const response = await fetch('/api/settings', {
+            const response = await fetch(this.baseURL + '/api/settings', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
@@ -2758,7 +2761,9 @@ class AdminApp {
             options.body = JSON.stringify(data);
         }
 
-        const response = await fetch(endpoint, options);
+        // Add base URL prefix for production
+        const url = this.baseURL + endpoint;
+        const response = await fetch(url, options);
         
         if (response.status === 401) {
             this.logout();
@@ -2982,7 +2987,7 @@ class AdminApp {
         
         try {
             // Load customers for selection
-            const customersResponse = await fetch('/api/customers', {
+            const customersResponse = await fetch(this.baseURL + '/api/customers', {
                 headers: { 'Authorization': `Bearer ${this.token}` }
             });
             
@@ -3310,7 +3315,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('Factuur aanmaken...');
         
         try {
-            const response = await fetch('/api/invoices', {
+            const response = await fetch(this.baseURL + '/api/invoices', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
@@ -3359,7 +3364,7 @@ class AdminApp {
         const loadingToast = this.showPDFLoadingToast('Factuur PDF openen...');
         
         try {
-            const response = await fetch(`/api/invoices/${id}/pdf`, {
+            const response = await fetch(`${this.baseURL}/api/invoices/${id}/pdf`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.token}`
