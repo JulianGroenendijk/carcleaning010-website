@@ -1648,8 +1648,17 @@ class AdminApp {
         console.log('➕ Opening add appointment modal');
         
         try {
-            // Fetch customers for dropdown (max allowed by validation)
-            const customers = await this.apiCall('GET', '/api/customers?limit=100');
+            // Load customers for selection (same approach as invoice modal)
+            const customersResponse = await fetch(this.baseURL + '/api/customers', {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            
+            if (!customersResponse.ok) {
+                throw new Error('Fout bij laden klanten');
+            }
+            
+            const customersData = await customersResponse.json();
+            const customers = customersData;
             
             // Create modal HTML
             const modalHTML = `
