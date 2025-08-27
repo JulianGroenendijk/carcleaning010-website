@@ -1343,7 +1343,7 @@ class AdminApp {
         `;
         
         try {
-            const appointments = await this.apiCall('/api/appointments');
+            const appointments = await this.apiCall('GET', '/api/appointments');
             console.log('✅ Appointments loaded:', appointments);
             
             section.innerHTML = `
@@ -1583,7 +1583,7 @@ class AdminApp {
         if (dateTo) params.append('date_to', dateTo);
         
         try {
-            const appointments = await this.apiCall(`/api/appointments?${params}`);
+            const appointments = await this.apiCall('GET', `/api/appointments?${params}`);
             console.log('✅ Filtered appointments loaded:', appointments);
             
             // Update the table body with filtered results
@@ -1621,7 +1621,7 @@ class AdminApp {
     async deleteAppointment(id) {
         if (confirm('Weet je zeker dat je deze afspraak wilt verwijderen?')) {
             try {
-                await this.apiCall(`/api/appointments/${id}`, 'DELETE');
+                await this.apiCall('DELETE', `/api/appointments/${id}`);
                 console.log('✅ Appointment deleted');
                 await this.loadAppointments(); // Reload the list
             } catch (error) {

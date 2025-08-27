@@ -95,6 +95,15 @@ app.use('/admin', express.static(path.join(__dirname, 'public'), noCacheOptions)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
 app.use(express.static(path.join(__dirname, 'public'), noCacheOptions));
 
+// Favicon fallback for root requests
+app.get('/favicon.png', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'favicon.png'));
+});
+
+app.get('/favicon.ico', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+});
+
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
     try {
