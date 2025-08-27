@@ -27,13 +27,13 @@ router.get('/financial-overview', async (req, res) => {
         const revenueQuery = `
             SELECT 
                 COALESCE(SUM(total_amount), 0) as total_revenue,
-                COALESCE(SUM(vat_amount), 0) as total_vat_collected,
+                COALESCE(SUM(tax_amount), 0) as total_vat_collected,
                 COUNT(*) as total_invoices,
                 COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_invoices,
                 COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_invoices,
                 COUNT(CASE WHEN status = 'overdue' THEN 1 END) as overdue_invoices
             FROM invoices 
-            WHERE 1=1 ${dateFilter.replace('date_column', 'invoice_date')}
+            WHERE 1=1 ${dateFilter.replace('date_column', 'created_at')}
         `;
         
         // Expenses
@@ -51,13 +51,13 @@ router.get('/financial-overview', async (req, res) => {
         // Monthly breakdown for charts
         const monthlyQuery = `
             SELECT 
-                EXTRACT(MONTH FROM invoice_date) as month,
-                EXTRACT(YEAR FROM invoice_date) as year,
+                EXTRACT(MONTH FROM created_at) as month,
+                EXTRACT(YEAR FROM created_at) as year,
                 COALESCE(SUM(total_amount), 0) as revenue,
                 COUNT(*) as invoice_count
             FROM invoices 
-            WHERE EXTRACT(YEAR FROM invoice_date) = $1
-            GROUP BY EXTRACT(YEAR FROM invoice_date), EXTRACT(MONTH FROM invoice_date)
+            WHERE EXTRACT(YEAR FROM created_at) = $1
+            GROUP BY EXTRACT(YEAR FROM created_at), EXTRACT(MONTH FROM created_at)
             ORDER BY year, month
         `;
         
@@ -175,12 +175,12 @@ router.get('/customer-revenue', async (req, res) => {
                 COUNT(i.id) as invoice_count,
                 COALESCE(SUM(i.total_amount), 0) as total_revenue,
                 COALESCE(AVG(i.total_amount), 0) as average_invoice,
-                MAX(i.invoice_date) as last_invoice_date,
+                MAX(i.created_at) as last_created_at,
                 COUNT(CASE WHEN i.status = 'paid' THEN 1 END) as paid_invoices,
                 COUNT(CASE WHEN i.status = 'pending' THEN 1 END) as pending_invoices
             FROM customers c
             LEFT JOIN invoices i ON c.id = i.customer_id 
-                AND EXTRACT(YEAR FROM i.invoice_date) = $1
+                AND EXTRACT(YEAR FROM i.created_at) = $1
             GROUP BY c.id, c.name, c.email
             HAVING COUNT(i.id) > 0
             ORDER BY total_revenue DESC
@@ -216,7 +216,7 @@ router.get('/service-performance', async (req, res) => {
             FROM services s
             LEFT JOIN invoice_items ii ON s.id = ii.service_id
             LEFT JOIN invoices i ON ii.invoice_id = i.id
-                AND EXTRACT(YEAR FROM i.invoice_date) = $1
+                AND EXTRACT(YEAR FROM i.created_at) = $1
             GROUP BY s.id, s.name, s.price
             ORDER BY total_revenue DESC
         `;
@@ -253,14 +253,14 @@ router.get('/vat-report', async (req, res) => {
         // VAT collected from invoices
         const vatCollectedQuery = `
             SELECT 
-                EXTRACT(QUARTER FROM invoice_date) as quarter,
-                COALESCE(SUM(vat_amount), 0) as vat_collected,
-                COALESCE(SUM(total_amount - vat_amount), 0) as net_revenue
+                EXTRACT(QUARTER FROM created_at) as quarter,
+                COALESCE(SUM(tax_amount), 0) as vat_collected,
+                COALESCE(SUM(total_amount - tax_amount), 0) as net_revenue
             FROM invoices 
-            WHERE EXTRACT(YEAR FROM invoice_date) = $1 
+            WHERE EXTRACT(YEAR FROM created_at) = $1 
                 AND status IN ('paid', 'partial')
-                ${dateFilter.replace('date_column', 'invoice_date')}
-            GROUP BY EXTRACT(QUARTER FROM invoice_date)
+                ${dateFilter.replace('date_column', 'created_at')}
+            GROUP BY EXTRACT(QUARTER FROM created_at)
             ORDER BY quarter
         `;
         
@@ -348,18 +348,18 @@ router.get('/export/:type', async (req, res) => {
             const query = `
                 SELECT 
                     i.invoice_number,
-                    i.invoice_date,
+                    i.created_at,
                     c.name as customer_name,
                     c.vat_number as customer_vat,
                     i.subtotal_amount,
-                    i.vat_amount,
+                    i.tax_amount,
                     i.total_amount,
                     i.status,
                     i.due_date
                 FROM invoices i
                 LEFT JOIN customers c ON i.customer_id = c.id
-                ${dateFilter.replace('date_column', 'i.invoice_date')}
-                ORDER BY i.invoice_date DESC
+                ${dateFilter.replace('date_column', 'i.created_at')}
+                ORDER BY i.created_at DESC
             `;
             
             const result = await dbQuery(query, params);
@@ -375,7 +375,7 @@ router.get('/export/:type', async (req, res) => {
                     s.name as supplier_name,
                     s.vat_number as supplier_vat,
                     e.amount,
-                    e.vat_amount,
+                    e.vat_amount as tax_amount,
                     e.receipt_number,
                     e.status
                 FROM expenses e
