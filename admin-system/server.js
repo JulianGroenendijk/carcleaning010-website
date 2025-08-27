@@ -45,7 +45,11 @@ const limiter = rateLimit({
         error: 'Te veel aanvragen. Probeer het later opnieuw.'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    // Skip deployment endpoints from rate limiting
+    skip: (req) => {
+        return req.path.startsWith('/api/deploy/');
+    }
 });
 app.use(limiter);
 
