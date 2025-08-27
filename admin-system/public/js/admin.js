@@ -2983,15 +2983,15 @@ class AdminApp {
                     deployBtn.className = 'btn btn-warning';
                     deployBtn.title = `Update naar ${data.remote.commit}`;
                     
-                    // Show update available on check button
-                    checkBtn.innerHTML = '<i class="bi bi-exclamation-triangle text-white"></i> Update!';
+                    // Show current version and that update is available
+                    checkBtn.innerHTML = `<i class="bi bi-exclamation-triangle text-white me-1"></i> v${data.local.version} → Update!`;
                     checkBtn.className = 'btn btn-sm btn-warning';
                     
                     setTimeout(() => {
                         checkBtn.innerHTML = originalHtml;
                         checkBtn.className = 'btn btn-sm btn-outline-secondary';
                         checkBtn.disabled = false;
-                    }, 4000);
+                    }, 5000);
                     
                 } else {
                     // Up to date
@@ -3002,15 +3002,15 @@ class AdminApp {
                     deployBtn.className = 'btn btn-success';
                     deployBtn.title = 'Systeem is up-to-date';
                     
-                    // Show up-to-date on check button
-                    checkBtn.innerHTML = '<i class="bi bi-check-circle text-white"></i> Up-to-date';
+                    // Show current version and up-to-date status
+                    checkBtn.innerHTML = `<i class="bi bi-check-circle text-white me-1"></i> v${data.local.version} - Actueel`;
                     checkBtn.className = 'btn btn-sm btn-success';
                     
                     setTimeout(() => {
                         checkBtn.innerHTML = originalHtml;
                         checkBtn.className = 'btn btn-sm btn-outline-secondary';
                         checkBtn.disabled = false;
-                    }, 3000);
+                    }, 4000);
                 }
                 
             } else {
