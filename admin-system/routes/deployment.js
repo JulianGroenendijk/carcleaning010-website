@@ -222,7 +222,9 @@ router.post('/update-password', async (req, res) => {
 
 // Health check for deployment
 router.get('/status', (req, res) => {
-    // Read version from package.json
+    // Read version from package.json (clear cache first)
+    const packageJsonPath = path.join(__dirname, '../package.json');
+    delete require.cache[require.resolve('../package.json')];
     const packageJson = require('../package.json');
     
     res.json({
@@ -262,7 +264,8 @@ router.get('/check-updates', async (req, res) => {
                 
                 const hasUpdates = localCommit.trim() !== remoteCommit.trim();
                 
-                // Read current version from package.json
+                // Read current version from package.json (clear cache first)
+                delete require.cache[require.resolve('../package.json')];
                 const packageJson = require('../package.json');
                 
                 res.json({
