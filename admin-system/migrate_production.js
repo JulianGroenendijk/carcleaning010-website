@@ -52,6 +52,14 @@ async function runMigration() {
         await client.query(`ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS service_name VARCHAR(200)`);
         console.log('✅ Added service_name column to invoice_items');
         
+        // Add color column to appointments
+        await client.query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS color VARCHAR(7) DEFAULT NULL`);
+        console.log('✅ Added color column to appointments');
+        
+        // Add index for appointment colors
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_appointments_color ON appointments(color)`);
+        console.log('✅ Added index for appointment colors');
+        
         console.log('🎉 Migration completed successfully!');
         
         // Verify schema
