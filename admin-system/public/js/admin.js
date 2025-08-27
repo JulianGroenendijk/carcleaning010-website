@@ -3018,20 +3018,13 @@ class AdminApp {
             // Start deployment steps animation
             this.animateDeploymentProgress();
             
-            // Create abort controller for timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
-            
-            const response = await fetch(this.baseURL + '/api/deploy/webhook', {
+            const response = await fetch(this.baseURL + '/api/deploy/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({}),
-                signal: controller.signal
+                body: JSON.stringify({})
             });
-            
-            clearTimeout(timeoutId);
             
             const data = await response.json();
             

@@ -8,7 +8,91 @@ const bcrypt = require('bcrypt');
 
 const router = express.Router();
 
-// Deployment webhook endpoint
+// Quick deployment trigger endpoint (returns immediately)
+router.post('/trigger', async (req, res) => {
+    try {
+        console.log('🔄 Deployment trigger received');
+        
+        // Return immediately, run deployment in background
+        res.json({
+            success: true,
+            message: 'Deployment gestart - controleer status',
+            deploymentId: Date.now(),
+            timestamp: new Date().toISOString()
+        });
+        
+        // Start deployment in background (non-blocking)
+        setImmediate(() => {
+            runDeployment();
+        });
+        
+    } catch (error) {
+        console.error('❌ Deployment trigger error:', error);
+        res.status(500).json({ error: 'Deployment trigger failed' });
+    }
+});
+
+// Background deployment function
+async function runDeployment() {
+    const { exec } = require('child_process');
+    const path = require('path');
+    
+    console.log('🔄 Starting background deployment...');
+    
+    return new Promise((resolve) => {
+        // Step 1: Git pull
+        exec('git pull origin main', { cwd: path.join(__dirname, '../../') }, (error, stdout, stderr) => {
+            if (error) {
+                console.error('❌ Git pull failed:', error);
+                return resolve(false);
+            }
+            
+            console.log('✅ Git pull successful:', stdout);
+            
+            // Check if already up to date
+            if (stdout.includes('Already up to date') || stdout.includes('Already up-to-date')) {
+                console.log('✅ System already up-to-date');
+                return resolve(true);
+            }
+            
+            // Step 2: Deploy website files
+            const deployWebsite = `
+                cd /var/www/vhosts/carcleaning010.nl
+                cp carcleaning010-website/*.html httpdocs/ 2>/dev/null || echo "No HTML files"
+                cp carcleaning010-website/*.css httpdocs/ 2>/dev/null || echo "No CSS files" 
+                cp carcleaning010-website/*.js httpdocs/ 2>/dev/null || echo "No JS files"
+                cp -r carcleaning010-website/images httpdocs/ 2>/dev/null || echo "No images"
+            `;
+            
+            exec(deployWebsite, (error, stdout, stderr) => {
+                console.log('🌐 Website files deployed:', stdout);
+                
+                // Step 3: Install dependencies
+                exec('npm install --production', { cwd: path.join(__dirname, '../') }, (error, stdout, stderr) => {
+                    if (!error) {
+                        console.log('✅ Dependencies installed');
+                        
+                        // Step 4: Security fixes
+                        exec('npm audit fix --force', { cwd: path.join(__dirname, '../') }, (error) => {
+                            console.log('🔒 Security fixes applied');
+                            
+                            // Step 5: Restart PM2
+                            exec('pm2 restart carcleaning010-admin || echo "PM2 restart done"', (error) => {
+                                console.log('🚀 Application restarted');
+                                resolve(true);
+                            });
+                        });
+                    } else {
+                        console.error('❌ Dependencies failed:', error);
+                        resolve(false);
+                    }
+                });
+            });
+        });
+    });
+}
+
+// Original webhook endpoint (keep for compatibility)
 router.post('/webhook', async (req, res) => {
     try {
         // Basic security check - only allow from GitHub IPs in production
