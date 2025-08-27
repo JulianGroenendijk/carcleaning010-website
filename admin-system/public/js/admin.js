@@ -2610,6 +2610,78 @@ class AdminApp {
                         <div class="card mt-4">
                             <div class="card-header">
                                 <h5 class="card-title mb-0">
+                                    <i class="bi bi-cloud-download text-primary"></i> Deployment & Updates
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Huidige Versie</h6>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-info me-2" id="current-version">Loading...</span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="check-version-btn">
+                                                <i class="bi bi-arrow-clockwise"></i> Check
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Auto-Deployment</h6>
+                                        <button type="button" class="btn btn-primary" id="deploy-btn">
+                                            <i class="bi bi-cloud-download"></i> 
+                                            <span id="deploy-text">Deploy Latest Update</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i>
+                                        <strong>Deployment:</strong> Haalt de nieuwste code van GitHub, 
+                                        synchroniseert website bestanden, en restart alle services.
+                                    </div>
+                                </div>
+                                
+                                <!-- Deployment Progress -->
+                                <div id="deployment-progress" class="mt-3" style="display: none;">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white">
+                                            <h6 class="card-title mb-0">
+                                                <i class="bi bi-gear-fill"></i> Deployment Bezig...
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="progress mb-3" style="height: 20px;">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                     id="deploy-progress-bar" role="progressbar" style="width: 0%">
+                                                    <span id="deploy-progress-text">0%</span>
+                                                </div>
+                                            </div>
+                                            <div id="deploy-steps">
+                                                <div class="deploy-step" data-step="1">
+                                                    <i class="bi bi-circle text-muted"></i> Git pull van GitHub...
+                                                </div>
+                                                <div class="deploy-step" data-step="2">
+                                                    <i class="bi bi-circle text-muted"></i> Website bestanden synchroniseren...
+                                                </div>
+                                                <div class="deploy-step" data-step="3">
+                                                    <i class="bi bi-circle text-muted"></i> Dependencies installeren...
+                                                </div>
+                                                <div class="deploy-step" data-step="4">
+                                                    <i class="bi bi-circle text-muted"></i> Security fixes toepassen...
+                                                </div>
+                                                <div class="deploy-step" data-step="5">
+                                                    <i class="bi bi-circle text-muted"></i> Services herstarten...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
                                     <i class="bi bi-shield-lock text-danger"></i> Wachtwoord Wijzigen
                                 </h5>
                             </div>
@@ -2649,6 +2721,9 @@ class AdminApp {
             `;
             
             this.setupSettingsEventListeners();
+            
+            // Load current version
+            this.checkVersion();
             
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -2727,6 +2802,13 @@ class AdminApp {
         // Change password button
         const changePasswordBtn = document.getElementById('change-password-btn');
         changePasswordBtn?.addEventListener('click', () => this.changePassword());
+        
+        // Deployment buttons
+        const deployBtn = document.getElementById('deploy-btn');
+        deployBtn?.addEventListener('click', () => this.startDeployment());
+        
+        const checkVersionBtn = document.getElementById('check-version-btn');
+        checkVersionBtn?.addEventListener('click', () => this.checkVersion());
     }
     
     async saveSettings() {
@@ -2868,6 +2950,184 @@ class AdminApp {
         } catch (error) {
             console.error('Error changing password:', error);
             this.showToast('❌ Fout bij wijzigen wachtwoord', 'danger');
+        }
+    }
+    
+    // Deployment functions
+    async checkVersion() {
+        console.log('🔍 Checking current version...');
+        
+        try {
+            const response = await fetch(this.baseURL + '/api/deploy/status');
+            const data = await response.json();
+            
+            if (response.ok) {
+                const versionBadge = document.getElementById('current-version');
+                versionBadge.textContent = `v${data.version}`;
+                versionBadge.className = 'badge bg-success me-2';
+                this.showToast(`✅ Huidige versie: ${data.version}`, 'info');
+            } else {
+                document.getElementById('current-version').textContent = 'Error';
+                document.getElementById('current-version').className = 'badge bg-danger me-2';
+            }
+        } catch (error) {
+            console.error('Error checking version:', error);
+            document.getElementById('current-version').textContent = 'Error';
+            document.getElementById('current-version').className = 'badge bg-danger me-2';
+        }
+    }
+    
+    async startDeployment() {
+        console.log('🚀 Starting deployment...');
+        
+        // Disable button and show progress
+        const deployBtn = document.getElementById('deploy-btn');
+        const deployText = document.getElementById('deploy-text');
+        const progressDiv = document.getElementById('deployment-progress');
+        
+        deployBtn.disabled = true;
+        deployText.textContent = 'Deploying...';
+        progressDiv.style.display = 'block';
+        
+        this.resetDeploymentProgress();
+        
+        try {
+            // Start deployment steps animation
+            this.animateDeploymentProgress();
+            
+            const response = await fetch(this.baseURL + '/api/deploy/webhook', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Complete all steps
+                this.completeDeploymentProgress();
+                this.showToast('🎉 Deployment succesvol voltooid!', 'success');
+                
+                // Update version
+                setTimeout(() => this.checkVersion(), 1000);
+                
+                // Auto-hide progress after 3 seconds
+                setTimeout(() => {
+                    progressDiv.style.display = 'none';
+                }, 3000);
+                
+            } else {
+                this.failDeploymentProgress();
+                this.showToast(`❌ Deployment gefaald: ${data.error}`, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Deployment error:', error);
+            this.failDeploymentProgress();
+            this.showToast('❌ Deployment fout - controleer de verbinding', 'danger');
+        }
+        
+        // Re-enable button
+        deployBtn.disabled = false;
+        deployText.textContent = 'Deploy Latest Update';
+    }
+    
+    resetDeploymentProgress() {
+        const progressBar = document.getElementById('deploy-progress-bar');
+        const progressText = document.getElementById('deploy-progress-text');
+        const steps = document.querySelectorAll('.deploy-step');
+        
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+        
+        steps.forEach(step => {
+            const icon = step.querySelector('i');
+            icon.className = 'bi bi-circle text-muted';
+        });
+    }
+    
+    animateDeploymentProgress() {
+        const steps = ['1', '2', '3', '4', '5'];
+        let currentStep = 0;
+        
+        const interval = setInterval(() => {
+            if (currentStep < steps.length) {
+                this.updateDeploymentStep(currentStep + 1, 'progress');
+                currentStep++;
+                
+                const progress = (currentStep / steps.length) * 100;
+                const progressBar = document.getElementById('deploy-progress-bar');
+                const progressText = document.getElementById('deploy-progress-text');
+                
+                progressBar.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+                
+            } else {
+                clearInterval(interval);
+            }
+        }, 800);
+        
+        // Store interval to clear if needed
+        this.deploymentInterval = interval;
+    }
+    
+    completeDeploymentProgress() {
+        if (this.deploymentInterval) {
+            clearInterval(this.deploymentInterval);
+        }
+        
+        // Mark all steps as complete
+        const steps = document.querySelectorAll('.deploy-step');
+        steps.forEach(step => {
+            const icon = step.querySelector('i');
+            icon.className = 'bi bi-check-circle text-success';
+        });
+        
+        // Complete progress bar
+        const progressBar = document.getElementById('deploy-progress-bar');
+        const progressText = document.getElementById('deploy-progress-text');
+        progressBar.style.width = '100%';
+        progressText.textContent = '100%';
+        progressBar.className = 'progress-bar bg-success';
+    }
+    
+    failDeploymentProgress() {
+        if (this.deploymentInterval) {
+            clearInterval(this.deploymentInterval);
+        }
+        
+        // Mark current step as failed
+        const progressSteps = document.querySelectorAll('.deploy-step');
+        progressSteps.forEach(step => {
+            const icon = step.querySelector('i');
+            if (icon.className.includes('text-primary')) {
+                icon.className = 'bi bi-x-circle text-danger';
+            }
+        });
+        
+        // Red progress bar
+        const progressBar = document.getElementById('deploy-progress-bar');
+        progressBar.className = 'progress-bar bg-danger';
+    }
+    
+    updateDeploymentStep(step, status) {
+        const stepElement = document.querySelector(`[data-step="${step}"]`);
+        if (!stepElement) return;
+        
+        const icon = stepElement.querySelector('i');
+        
+        switch (status) {
+            case 'progress':
+                icon.className = 'bi bi-gear-fill text-primary';
+                break;
+            case 'complete':
+                icon.className = 'bi bi-check-circle text-success';
+                break;
+            case 'error':
+                icon.className = 'bi bi-x-circle text-danger';
+                break;
         }
     }
 
