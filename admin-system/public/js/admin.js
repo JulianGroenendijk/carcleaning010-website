@@ -426,7 +426,7 @@ class AdminApp {
             <div class="card mb-4">
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <input type="text" class="form-control" id="customers-search" placeholder="Zoek klanten...">
                         </div>
                         <div class="col-md-3">
@@ -437,10 +437,39 @@ class AdminApp {
                                 <option value="last_name:DESC">Naam Z-A</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <button class="btn btn-outline-primary w-100" id="customers-refresh">
                                 <i class="bi bi-arrow-clockwise"></i> Verversen
                             </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-success w-100" id="export-customers-btn">
+                                <i class="bi bi-download"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bulk Actions -->
+            <div class="card mb-4 d-none" id="bulk-actions-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <span id="selected-count">0</span> klanten geselecteerd
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-outline-primary btn-sm" id="bulk-email-btn">
+                                    <i class="bi bi-envelope"></i> Email verzenden
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm" id="bulk-export-btn">
+                                    <i class="bi bi-download"></i> Export geselecteerd
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" id="bulk-delete-btn">
+                                    <i class="bi bi-trash"></i> Verwijderen
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -459,11 +488,16 @@ class AdminApp {
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
+                                        <th width="50">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="select-all-customers">
+                                            </div>
+                                        </th>
                                         <th>Naam</th>
                                         <th>Email</th>
                                         <th>Telefoon</th>
                                         <th>Aangemaakt</th>
-                                        <th>Acties</th>
+                                        <th width="150">Acties</th>
                                     </tr>
                                 </thead>
                                 <tbody id="customers-table-body">
@@ -1291,6 +1325,8 @@ class AdminApp {
 
     async loadAppointments() {
         const section = document.getElementById('appointments-section');
+        
+        // Show loading state
         section.innerHTML = `
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="bi bi-calendar-check text-success"></i> Planning Beheer</h1>
@@ -1299,9 +1335,306 @@ class AdminApp {
                 </button>
             </div>
             <div class="text-center py-5">
-                <p class="text-muted">Planning functionaliteit wordt geladen...</p>
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Laden...</span>
+                </div>
+                <p class="text-muted mt-2">Afspraken worden geladen...</p>
             </div>
         `;
+        
+        try {
+            const appointments = await this.apiCall('/api/appointments');
+            console.log('✅ Appointments loaded:', appointments);
+            
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-calendar-check text-success"></i> Planning Beheer</h1>
+                    <button class="btn btn-primary" id="add-appointment-btn">
+                        <i class="bi bi-calendar-plus"></i> Nieuwe Afspraak
+                    </button>
+                </div>
+                
+                <!-- Filters -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="appointment-search" class="form-label">Zoeken</label>
+                                <input type="text" class="form-control" id="appointment-search" 
+                                       placeholder="Klant, dienst, notities...">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="appointment-status-filter" class="form-label">Status</label>
+                                <select class="form-select" id="appointment-status-filter">
+                                    <option value="">Alle statussen</option>
+                                    <option value="scheduled">Gepland</option>
+                                    <option value="confirmed">Bevestigd</option>
+                                    <option value="in_progress">Bezig</option>
+                                    <option value="completed">Voltooid</option>
+                                    <option value="cancelled">Geannuleerd</option>
+                                    <option value="no_show">Niet verschenen</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="appointment-date-from" class="form-label">Van datum</label>
+                                <input type="date" class="form-control" id="appointment-date-from">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="appointment-date-to" class="form-label">Tot datum</label>
+                                <input type="date" class="form-control" id="appointment-date-to">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button class="btn btn-outline-primary me-2" id="filter-appointments-btn">
+                                    <i class="bi bi-funnel"></i> Filter
+                                </button>
+                                <button class="btn btn-outline-secondary" id="clear-appointment-filters-btn">
+                                    <i class="bi bi-x-circle"></i> Wissen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Appointments Table -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Datum & Tijd</th>
+                                        <th>Klant</th>
+                                        <th>Dienst</th>
+                                        <th>Voertuig</th>
+                                        <th>Status</th>
+                                        <th>Duur</th>
+                                        <th>Prijs</th>
+                                        <th>Acties</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appointments-table-body">
+                                    ${this.renderAppointmentsTable(appointments.appointments || [])}
+                                </tbody>
+                            </table>
+                        </div>
+                        ${this.renderPagination(appointments.pagination)}
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners
+            this.addAppointmentEventListeners();
+            
+        } catch (error) {
+            console.error('Error loading appointments:', error);
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-calendar-check text-success"></i> Planning Beheer</h1>
+                    <button class="btn btn-primary" id="add-appointment-btn">
+                        <i class="bi bi-calendar-plus"></i> Nieuwe Afspraak
+                    </button>
+                </div>
+                <div class="alert alert-danger">
+                    <h4>Error</h4>
+                    <p>Kon afspraken niet laden: ${error.message}</p>
+                    <button class="btn btn-outline-danger" onclick="location.reload()">
+                        <i class="bi bi-arrow-clockwise"></i> Opnieuw proberen
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    renderAppointmentsTable(appointments) {
+        if (!appointments || appointments.length === 0) {
+            return `
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="bi bi-calendar-x display-1"></i>
+                            <p class="mt-2">Geen afspraken gevonden</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        return appointments.map(appointment => `
+            <tr>
+                <td>
+                    <div class="fw-bold">${this.formatDate(appointment.scheduled_date)}</div>
+                    <small class="text-muted">${this.formatTime(appointment.scheduled_time)}</small>
+                </td>
+                <td>
+                    <div class="fw-bold">${appointment.customer_name || 'Onbekend'}</div>
+                    ${appointment.customer_email ? `<small class="text-muted d-block">${appointment.customer_email}</small>` : ''}
+                    ${appointment.customer_phone ? `<small class="text-muted d-block">${appointment.customer_phone}</small>` : ''}
+                </td>
+                <td>
+                    <span class="badge bg-info">${appointment.service_type || 'Niet opgegeven'}</span>
+                </td>
+                <td>
+                    ${appointment.vehicle_info ? 
+                        `<div class="small">${appointment.vehicle_info}</div>` : 
+                        '<span class="text-muted">Geen info</span>'
+                    }
+                </td>
+                <td>
+                    <span class="badge ${this.getAppointmentStatusClass(appointment.status)}">
+                        ${this.getAppointmentStatusText(appointment.status)}
+                    </span>
+                </td>
+                <td>
+                    ${appointment.duration_minutes ? `${appointment.duration_minutes} min` : '-'}
+                </td>
+                <td>
+                    ${appointment.estimated_price ? 
+                        `€${parseFloat(appointment.estimated_price).toFixed(2)}` : 
+                        '-'
+                    }
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="adminApp.viewAppointment(${appointment.id})"
+                                title="Bekijken">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" 
+                                onclick="adminApp.editAppointment(${appointment.id})"
+                                title="Bewerken">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" 
+                                onclick="adminApp.deleteAppointment(${appointment.id})"
+                                title="Verwijderen">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    getAppointmentStatusClass(status) {
+        switch (status) {
+            case 'scheduled': return 'bg-primary';
+            case 'confirmed': return 'bg-success';
+            case 'in_progress': return 'bg-warning';
+            case 'completed': return 'bg-success';
+            case 'cancelled': return 'bg-danger';
+            case 'no_show': return 'bg-secondary';
+            default: return 'bg-secondary';
+        }
+    }
+
+    getAppointmentStatusText(status) {
+        switch (status) {
+            case 'scheduled': return 'Gepland';
+            case 'confirmed': return 'Bevestigd';
+            case 'in_progress': return 'Bezig';
+            case 'completed': return 'Voltooid';
+            case 'cancelled': return 'Geannuleerd';
+            case 'no_show': return 'Niet verschenen';
+            default: return 'Onbekend';
+        }
+    }
+
+    addAppointmentEventListeners() {
+        // Filter button
+        const filterBtn = document.getElementById('filter-appointments-btn');
+        if (filterBtn) {
+            filterBtn.addEventListener('click', () => this.filterAppointments());
+        }
+
+        // Clear filters button
+        const clearBtn = document.getElementById('clear-appointment-filters-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearAppointmentFilters());
+        }
+
+        // Add appointment button
+        const addBtn = document.getElementById('add-appointment-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.showAddAppointmentModal());
+        }
+
+        // Search input real-time filtering
+        const searchInput = document.getElementById('appointment-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => this.filterAppointments(), 300));
+        }
+    }
+
+    async filterAppointments() {
+        console.log('🔍 Filtering appointments...');
+        
+        // Get filter values
+        const search = document.getElementById('appointment-search')?.value || '';
+        const status = document.getElementById('appointment-status-filter')?.value || '';
+        const dateFrom = document.getElementById('appointment-date-from')?.value || '';
+        const dateTo = document.getElementById('appointment-date-to')?.value || '';
+        
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status) params.append('status', status);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        
+        try {
+            const appointments = await this.apiCall(`/api/appointments?${params}`);
+            console.log('✅ Filtered appointments loaded:', appointments);
+            
+            // Update the table body with filtered results
+            const tableBody = document.getElementById('appointments-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = this.renderAppointmentsTable(appointments.appointments || []);
+            }
+            
+        } catch (error) {
+            console.error('Error filtering appointments:', error);
+            this.showToast('Fout bij filteren afspraken: ' + error.message, 'error');
+        }
+    }
+
+    clearAppointmentFilters() {
+        document.getElementById('appointment-search').value = '';
+        document.getElementById('appointment-status-filter').value = '';
+        document.getElementById('appointment-date-from').value = '';
+        document.getElementById('appointment-date-to').value = '';
+        this.loadAppointments();
+    }
+
+    async viewAppointment(id) {
+        console.log('👁️ Viewing appointment:', id);
+        // TODO: Implement appointment view modal
+        alert('Afspraak bekijken functionaliteit wordt nog geïmplementeerd');
+    }
+
+    async editAppointment(id) {
+        console.log('✏️ Editing appointment:', id);
+        // TODO: Implement appointment edit modal
+        alert('Afspraak bewerken functionaliteit wordt nog geïmplementeerd');
+    }
+
+    async deleteAppointment(id) {
+        if (confirm('Weet je zeker dat je deze afspraak wilt verwijderen?')) {
+            try {
+                await this.apiCall(`/api/appointments/${id}`, 'DELETE');
+                console.log('✅ Appointment deleted');
+                await this.loadAppointments(); // Reload the list
+            } catch (error) {
+                console.error('❌ Error deleting appointment:', error);
+                alert('Fout bij verwijderen van afspraak: ' + error.message);
+            }
+        }
+    }
+
+    showAddAppointmentModal() {
+        console.log('➕ Add appointment modal');
+        // TODO: Implement add appointment modal
+        alert('Afspraak toevoegen functionaliteit wordt nog geïmplementeerd');
     }
 
     async loadInvoices() {
@@ -2263,9 +2596,14 @@ class AdminApp {
             section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="bi bi-receipt text-danger"></i> Inkoop Beheer</h1>
-                    <button class="btn btn-primary" id="add-expense-btn">
-                        <i class="bi bi-plus-lg"></i> Nieuwe Uitgave
-                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-success" id="export-expenses-btn">
+                            <i class="bi bi-download"></i> Export CSV
+                        </button>
+                        <button class="btn btn-primary" id="add-expense-btn">
+                            <i class="bi bi-plus-lg"></i> Nieuwe Uitgave
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Summary Cards -->
@@ -2421,6 +2759,11 @@ class AdminApp {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => this.loadExpenses());
         }
+
+        const exportBtn = document.getElementById('export-expenses-btn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportExpenses());
+        }
         
         console.log('✅ Expenses event listeners setup');
     }
@@ -2435,6 +2778,39 @@ class AdminApp {
     
     editExpense(id) {
         this.showToast(`Uitgave #${id} bewerken komt binnenkort!`, 'info');
+    }
+
+    async exportExpenses() {
+        try {
+            console.log('📤 Exporting expenses to CSV...');
+            
+            // Get current date for filename
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Use the existing reports export endpoint
+            const response = await fetch('/admin/api/reports/export/expenses?format=csv', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Export failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `expenses_${today}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            this.showToast('Uitgaven succesvol geëxporteerd naar CSV', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Fout bij exporteren: ' + error.message, 'error');
+        }
     }
 
     // Suppliers Management
@@ -4406,6 +4782,11 @@ class AdminApp {
         tableBody.innerHTML = response.customers.map(customer => `
             <tr>
                 <td>
+                    <div class="form-check">
+                        <input class="form-check-input customer-checkbox" type="checkbox" value="${customer.id}">
+                    </div>
+                </td>
+                <td>
                     <strong>${customer.first_name || ''} ${customer.last_name || ''}</strong>
                 </td>
                 <td>${customer.email || '-'}</td>
@@ -4460,6 +4841,142 @@ class AdminApp {
         document.getElementById('add-customer-btn').addEventListener('click', () => {
             this.showAddCustomerModal();
         });
+
+        // Export customers
+        document.getElementById('export-customers-btn').addEventListener('click', () => {
+            this.exportCustomers();
+        });
+
+        // Bulk actions setup
+        this.setupBulkActions();
+    }
+
+    setupBulkActions() {
+        // Select all checkbox
+        const selectAllCheckbox = document.getElementById('select-all-customers');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => {
+                this.toggleAllCustomers(e.target.checked);
+            });
+        }
+
+        // Individual checkboxes - delegate event handling
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('customer-checkbox')) {
+                this.updateBulkActionVisibility();
+            }
+        });
+
+        // Bulk action buttons
+        const bulkEmailBtn = document.getElementById('bulk-email-btn');
+        if (bulkEmailBtn) {
+            bulkEmailBtn.addEventListener('click', () => this.bulkEmailCustomers());
+        }
+
+        const bulkExportBtn = document.getElementById('bulk-export-btn');
+        if (bulkExportBtn) {
+            bulkExportBtn.addEventListener('click', () => this.bulkExportCustomers());
+        }
+
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', () => this.bulkDeleteCustomers());
+        }
+    }
+
+    toggleAllCustomers(checked) {
+        const checkboxes = document.querySelectorAll('.customer-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = checked;
+        });
+        this.updateBulkActionVisibility();
+    }
+
+    updateBulkActionVisibility() {
+        const selectedCustomers = this.getSelectedCustomers();
+        const bulkActionsCard = document.getElementById('bulk-actions-card');
+        const selectedCountSpan = document.getElementById('selected-count');
+
+        if (selectedCustomers.length > 0) {
+            bulkActionsCard.classList.remove('d-none');
+            selectedCountSpan.textContent = selectedCustomers.length;
+        } else {
+            bulkActionsCard.classList.add('d-none');
+        }
+
+        // Update select all checkbox state
+        const selectAllCheckbox = document.getElementById('select-all-customers');
+        const allCheckboxes = document.querySelectorAll('.customer-checkbox');
+        if (selectAllCheckbox && allCheckboxes.length > 0) {
+            const checkedCount = selectedCustomers.length;
+            selectAllCheckbox.checked = checkedCount === allCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+        }
+    }
+
+    getSelectedCustomers() {
+        const checkboxes = document.querySelectorAll('.customer-checkbox:checked');
+        return Array.from(checkboxes).map(checkbox => checkbox.value);
+    }
+
+    async exportCustomers() {
+        try {
+            console.log('📤 Exporting all customers to CSV...');
+            const response = await fetch('/admin/api/customers?format=csv&limit=1000', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Export failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            this.showToast('Klanten succesvol geëxporteerd', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Fout bij exporteren: ' + error.message, 'error');
+        }
+    }
+
+    async bulkEmailCustomers() {
+        const selectedIds = this.getSelectedCustomers();
+        console.log('📧 Bulk email to customers:', selectedIds);
+        alert(`Email functionaliteit voor ${selectedIds.length} klanten wordt nog geïmplementeerd`);
+    }
+
+    async bulkExportCustomers() {
+        const selectedIds = this.getSelectedCustomers();
+        try {
+            console.log('📤 Bulk export customers:', selectedIds);
+            // TODO: Implement bulk export for selected customers
+            alert(`Export van ${selectedIds.length} geselecteerde klanten wordt nog geïmplementeerd`);
+        } catch (error) {
+            console.error('Bulk export error:', error);
+            this.showToast('Fout bij bulk export: ' + error.message, 'error');
+        }
+    }
+
+    async bulkDeleteCustomers() {
+        const selectedIds = this.getSelectedCustomers();
+        if (confirm(`Weet je zeker dat je ${selectedIds.length} klanten wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.`)) {
+            try {
+                console.log('🗑️ Bulk delete customers:', selectedIds);
+                // TODO: Implement bulk delete API endpoint
+                alert(`Bulk verwijderen van ${selectedIds.length} klanten wordt nog geïmplementeerd`);
+            } catch (error) {
+                console.error('Bulk delete error:', error);
+                this.showToast('Fout bij bulk verwijderen: ' + error.message, 'error');
+            }
+        }
     }
 
     updatePagination(paginationEl, pagination, type) {
