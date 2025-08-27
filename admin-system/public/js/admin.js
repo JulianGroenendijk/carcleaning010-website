@@ -5,6 +5,13 @@ class AdminApp {
         this.token = localStorage.getItem('admin_token');
         this.user = null;
         this.currentSection = 'dashboard';
+        this.systemSettings = {
+            vat_enabled: true,
+            vat_percentage: 21,
+            company_name: 'Carcleaning010',
+            company_phone: '+31 6 36 52 97 93',
+            company_email: 'info@carcleaning010.nl'
+        };
         
         this.init();
     }
@@ -17,6 +24,8 @@ class AdminApp {
         if (this.token) {
             const isValid = await this.verifyToken();
             if (isValid) {
+                // Load system settings
+                await this.loadSystemSettingsToMemory();
                 this.showApp();
                 await this.loadDashboard();
             } else {
@@ -276,6 +285,9 @@ class AdminApp {
                 break;
             case 'reports':
                 await this.loadReports();
+                break;
+            case 'settings':
+                await this.loadSettings();
                 break;
         }
     }
@@ -618,6 +630,12 @@ class AdminApp {
                         <button class="btn btn-outline-primary" onclick="alert('Button clicked for quote ${quote.id}!'); console.log('View button clicked for quote ${quote.id}'); if(window.adminApp) window.adminApp.viewQuote(${quote.id}); else alert('AdminApp not loaded yet');" title="Bekijken">
                             <i class="bi bi-eye"></i>
                         </button>
+                        <button class="btn btn-outline-warning" onclick="if(window.adminApp) window.adminApp.viewQuotePDF('${quote.id}'); else alert('AdminApp not loaded yet');" title="PDF Bekijken">
+                            <i class="bi bi-file-pdf"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="if(window.adminApp) window.adminApp.convertQuoteToInvoice('${quote.id}'); else alert('AdminApp not loaded yet');" title="Naar Factuur">
+                            <i class="bi bi-receipt"></i>
+                        </button>
                         <button class="btn btn-outline-success" onclick="console.log('Edit button clicked for quote ${quote.id}'); if(window.adminApp) window.adminApp.editQuote(${quote.id}); else alert('AdminApp not loaded yet');" title="Bewerken">
                             <i class="bi bi-pencil"></i>
                         </button>
@@ -736,11 +754,17 @@ class AdminApp {
             body.innerHTML = this.renderQuoteViewContent(quote);
             footer.innerHTML = `
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                <button type="button" class="btn btn-outline-warning" onclick="adminApp.viewQuotePDF('${quote.id}')">
+                    <i class="bi bi-file-pdf"></i> PDF Bekijken
+                </button>
+                <button type="button" class="btn btn-outline-success" onclick="adminApp.downloadQuotePDF('${quote.id}')">
+                    <i class="bi bi-download"></i> PDF Downloaden
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="adminApp.convertQuoteToInvoice('${quote.id}')">
+                    <i class="bi bi-receipt"></i> Naar Factuur
+                </button>
                 <button type="button" class="btn btn-primary" onclick="adminApp.editQuote(${quote.id})">
                     <i class="bi bi-pencil"></i> Bewerken
-                </button>
-                <button type="button" class="btn btn-success" onclick="adminApp.downloadQuotePDF(${quote.id})">
-                    <i class="bi bi-file-pdf"></i> PDF Downloaden
                 </button>
             `;
         } else {
@@ -831,9 +855,13 @@ class AdminApp {
                 <div class="col-md-4">
                     <h6 class="text-muted mb-3">TOTAAL</h6>
                     <table class="table table-sm">
-                        <tr><td>Subtotaal:</td><td class="text-end">€${((quote.amount || 0) / 1.21).toFixed(2)}</td></tr>
-                        <tr><td>BTW (21%):</td><td class="text-end">€${((quote.amount || 0) - ((quote.amount || 0) / 1.21)).toFixed(2)}</td></tr>
+                        ${this.systemSettings.vat_enabled ? `
+                        <tr><td>Subtotaal:</td><td class="text-end">€${((quote.amount || 0) / (1 + (this.systemSettings.vat_percentage / 100))).toFixed(2)}</td></tr>
+                        <tr><td>BTW (${this.systemSettings.vat_percentage}%):</td><td class="text-end">€${((quote.amount || 0) - ((quote.amount || 0) / (1 + (this.systemSettings.vat_percentage / 100)))).toFixed(2)}</td></tr>
                         <tr class="table-active"><td><strong>Totaal:</strong></td><td class="text-end"><strong>€${(quote.amount || 0).toFixed(2)}</strong></td></tr>
+                        ` : `
+                        <tr class="table-active"><td><strong>Totaal:</strong></td><td class="text-end"><strong>€${(quote.amount || 0).toFixed(2)}</strong></td></tr>
+                        `}
                     </table>
                 </div>
             </div>
@@ -939,9 +967,79 @@ class AdminApp {
         }
     }
     
-    downloadQuotePDF(id) {
+    async downloadQuotePDF(id) {
         console.log('📄 Download PDF for quote:', id);
-        this.showToast('PDF download functionaliteit komt binnenkort!', 'info');
+        
+        // Show loading animation
+        const loadingToast = this.showPDFLoadingToast('Downloaden...');
+        
+        try {
+            const response = await fetch(`/api/quotes/${id}/pdf`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Offerte-${id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            // Hide loading and show success
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('✅ PDF gedownload!', 'success');
+            
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('❌ Fout bij downloaden PDF', 'danger');
+        }
+    }
+    
+    async viewQuotePDF(id) {
+        console.log('👁️ View PDF for quote:', id);
+        
+        // Show loading animation
+        const loadingToast = this.showPDFLoadingToast('PDF openen...');
+        
+        try {
+            const response = await fetch(`/api/quotes/${id}/pdf`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            
+            // Clean up after a delay to ensure the PDF loads
+            setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+            
+            // Hide loading and show success
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('✅ PDF geopend in nieuw tabblad!', 'success');
+            
+        } catch (error) {
+            console.error('Error viewing PDF:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('❌ Fout bij openen PDF', 'danger');
+        }
     }
     
     closeModal() {
@@ -964,6 +1062,47 @@ class AdminApp {
         }
     }
     
+    async convertQuoteToInvoice(id) {
+        console.log('🧾 Convert quote to invoice:', id);
+        
+        if (!confirm('Wilt u deze offerte omzetten naar een factuur?')) {
+            return;
+        }
+        
+        // Show loading animation
+        const loadingToast = this.showPDFLoadingToast('Factuur aanmaken...');
+        
+        try {
+            const response = await fetch(`/api/quotes/${id}/convert-to-invoice`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const invoice = await response.json();
+            
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast(`✅ Factuur ${invoice.invoice_number} succesvol aangemaakt!`, 'success');
+            
+            // Close any open modals
+            this.closeModal();
+            
+            // Switch to invoices view
+            this.showSection('invoices');
+            
+        } catch (error) {
+            console.error('Error converting quote to invoice:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('❌ Fout bij omzetten naar factuur', 'danger');
+        }
+    }
+
     deleteQuote(id) {
         console.log('🗑️ Delete quote:', id);
         if (confirm(`Weet je zeker dat je offerte #${id} wilt verwijderen?`)) {
@@ -1008,6 +1147,8 @@ class AdminApp {
 
     async loadInvoices() {
         const section = document.getElementById('invoices-section');
+        
+        // Show loading state
         section.innerHTML = `
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="bi bi-receipt text-info"></i> Facturen Beheer</h1>
@@ -1016,13 +1157,200 @@ class AdminApp {
                 </button>
             </div>
             <div class="text-center py-5">
-                <p class="text-muted">Facturen functionaliteit wordt geladen...</p>
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Laden...</span>
+                </div>
+                <p class="text-muted mt-2">Facturen worden geladen...</p>
             </div>
         `;
+        
+        try {
+            // Fetch invoices from API
+            const response = await fetch('/api/invoices', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('📋 Invoices API response:', data);
+            
+            // Build invoices interface
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-receipt text-info"></i> Facturen Beheer</h1>
+                    <button class="btn btn-primary" id="add-invoice-btn">
+                        <i class="bi bi-receipt"></i> Nieuwe Factuur
+                    </button>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3">
+                        <input type="text" class="form-control" id="invoice-search" placeholder="Zoek facturen...">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <select class="form-select" id="invoice-status-filter">
+                            <option value="">Alle statussen</option>
+                            <option value="draft">Concept</option>
+                            <option value="sent">Verzonden</option>
+                            <option value="paid">Betaald</option>
+                            <option value="overdue">Achterstallig</option>
+                            <option value="cancelled">Geannuleerd</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <select class="form-select" id="invoice-sort">
+                            <option value="created_at-desc">Nieuwste eerst</option>
+                            <option value="created_at-asc">Oudste eerst</option>
+                            <option value="total_amount-desc">Hoogste bedrag</option>
+                            <option value="total_amount-asc">Laagste bedrag</option>
+                            <option value="due_date-asc">Vervaldatum</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <button class="btn btn-outline-secondary w-100" id="refresh-invoices">
+                            <i class="bi bi-arrow-clockwise"></i> Ververs
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Factuur #</th>
+                                        <th>Klant</th>
+                                        <th>Bedrag</th>
+                                        <th>Status</th>
+                                        <th>Vervaldatum</th>
+                                        <th>Aangemaakt</th>
+                                        <th>Acties</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoices-table-body">
+                                    ${this.renderInvoicesTable(data.invoices || [])}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Setup event listeners for invoices section
+            this.setupInvoicesEventListeners();
+            
+        } catch (error) {
+            console.error('Error loading invoices:', error);
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-receipt text-info"></i> Facturen Beheer</h1>
+                    <button class="btn btn-primary" id="add-invoice-btn">
+                        <i class="bi bi-receipt"></i> Nieuwe Factuur
+                    </button>
+                </div>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Fout bij het laden van facturen: ${error.message}
+                    <br><small>Check de console voor meer details.</small>
+                </div>
+            `;
+        }
+    }
+    
+    renderInvoicesTable(invoices) {
+        if (!invoices.length) {
+            return `
+                <tr>
+                    <td colspan="7" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+                            Geen facturen gevonden
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        return invoices.map(invoice => `
+            <tr>
+                <td><strong>#${invoice.invoice_number || invoice.id}</strong></td>
+                <td>${invoice.customer_name || 'Onbekend'}</td>
+                <td class="text-currency">€${(invoice.total_amount || 0).toFixed(2)}</td>
+                <td>
+                    <span class="badge status-${invoice.status || 'draft'}">
+                        ${this.getInvoiceStatusText(invoice.status || 'draft')}
+                    </span>
+                </td>
+                <td>${invoice.due_date ? this.formatDate(invoice.due_date) : '-'}</td>
+                <td>${this.formatDate(invoice.created_at)}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="if(window.adminApp) window.adminApp.viewInvoice('${invoice.id}');" title="Bekijken">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="if(window.adminApp) window.adminApp.viewInvoicePDF('${invoice.id}');" title="PDF Bekijken">
+                            <i class="bi bi-file-pdf"></i>
+                        </button>
+                        <button class="btn btn-outline-success" onclick="if(window.adminApp) window.adminApp.editInvoice('${invoice.id}');" title="Bewerken">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="if(window.adminApp) window.adminApp.deleteInvoice('${invoice.id}');" title="Verwijderen">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    getInvoiceStatusText(status) {
+        const statusMap = {
+            'draft': 'Concept',
+            'sent': 'Verzonden',
+            'paid': 'Betaald',
+            'overdue': 'Achterstallig',
+            'cancelled': 'Geannuleerd'
+        };
+        return statusMap[status] || status;
+    }
+    
+    setupInvoicesEventListeners() {
+        // Add invoice button
+        const addBtn = document.getElementById('add-invoice-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.showAddInvoiceModal());
+        }
+        
+        // Search and filter
+        const searchInput = document.getElementById('invoice-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => this.filterInvoices());
+        }
+        
+        const statusFilter = document.getElementById('invoice-status-filter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', () => this.filterInvoices());
+        }
+        
+        // Refresh button
+        const refreshBtn = document.getElementById('refresh-invoices');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.loadInvoices());
+        }
+        
+        console.log('✅ Invoices event listeners setup');
     }
 
     async loadLeads() {
         const section = document.getElementById('leads-section');
+        
+        // Show loading state
         section.innerHTML = `
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="bi bi-person-plus text-success"></i> Website Leads</h1>
@@ -1033,9 +1361,690 @@ class AdminApp {
                 </div>
             </div>
             <div class="text-center py-5">
-                <p class="text-muted">Leads functionaliteit wordt geladen...</p>
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Laden...</span>
+                </div>
+                <p class="text-muted mt-2">Leads worden geladen...</p>
             </div>
         `;
+
+        try {
+            // Load leads from API
+            const result = await this.apiCall('GET', '/api/leads?page=1&limit=20');
+            const leads = result.leads || [];
+
+            // Status color mapping
+            const statusColors = {
+                'new': 'bg-primary',
+                'contacted': 'bg-warning',
+                'converted': 'bg-success',
+                'closed': 'bg-secondary'
+            };
+
+            const statusLabels = {
+                'new': 'Nieuw',
+                'contacted': 'Gecontacteerd',
+                'converted': 'Omgezet',
+                'closed': 'Gesloten'
+            };
+
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-person-plus text-success"></i> Website Leads (${leads.length})</h1>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" id="refresh-leads-btn">
+                            <i class="bi bi-arrow-clockwise"></i> Verversen
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Tabs -->
+                <ul class="nav nav-pills mb-3" id="leads-filter">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-filter="all">Alle (${leads.length})</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-filter="new">Nieuw (${leads.filter(l => l.status === 'new').length})</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-filter="contacted">Gecontacteerd (${leads.filter(l => l.status === 'contacted').length})</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-filter="converted">Omgezet (${leads.filter(l => l.status === 'converted').length})</button>
+                    </li>
+                </ul>
+
+                <!-- Leads Table -->
+                <div class="card">
+                    <div class="card-body">
+                        ${leads.length === 0 ? `
+                            <div class="text-center py-5">
+                                <i class="bi bi-inbox display-4 text-muted"></i>
+                                <h5 class="mt-3 text-muted">Geen leads gevonden</h5>
+                                <p class="text-muted">Er zijn nog geen website leads ontvangen.</p>
+                            </div>
+                        ` : `
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Datum</th>
+                                            <th>Naam</th>
+                                            <th>Contact</th>
+                                            <th>Service</th>
+                                            <th>Status</th>
+                                            <th>Acties</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leads-table-body">
+                                        ${leads.map(lead => `
+                                            <tr data-status="${lead.status}">
+                                                <td>
+                                                    <small class="text-muted">
+                                                        ${new Date(lead.created_at).toLocaleDateString('nl-NL', {
+                                                            day: '2-digit',
+                                                            month: '2-digit',
+                                                            year: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold">${lead.first_name || ''} ${lead.last_name || ''}</div>
+                                                    ${lead.vehicle_info ? `<small class="text-muted">${lead.vehicle_info}</small>` : ''}
+                                                </td>
+                                                <td>
+                                                    ${lead.email ? `<div><a href="mailto:${lead.email}" class="text-decoration-none">${lead.email}</a></div>` : ''}
+                                                    ${lead.phone ? `<div><a href="tel:${lead.phone}" class="text-decoration-none">${lead.phone}</a></div>` : ''}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-light text-dark">${lead.service_type || 'Niet opgegeven'}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge ${statusColors[lead.status] || 'bg-secondary'}">${statusLabels[lead.status] || lead.status}</span>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-primary" onclick="adminApp.viewLead('${lead.id}')" title="Bekijken">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-warning" onclick="adminApp.generateQuoteFromLead('${lead.id}')" title="Offerte genereren">
+                                                            <i class="bi bi-file-earmark-text"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-success" onclick="adminApp.updateLeadStatus('${lead.id}', 'contacted')" title="Markeer als gecontacteerd" ${lead.status !== 'new' ? 'disabled' : ''}>
+                                                            <i class="bi bi-telephone"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-info" onclick="adminApp.convertLead('${lead.id}')" title="Omzetten naar klant" ${lead.status === 'converted' ? 'disabled' : ''}>
+                                                            <i class="bi bi-arrow-right-circle"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+
+            // Setup filter functionality
+            document.querySelectorAll('#leads-filter button').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const filter = e.target.dataset.filter;
+                    
+                    // Update active tab
+                    document.querySelectorAll('#leads-filter button').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    // Filter rows
+                    const rows = document.querySelectorAll('#leads-table-body tr');
+                    rows.forEach(row => {
+                        const status = row.dataset.status;
+                        if (filter === 'all' || status === filter) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Setup refresh button
+            document.getElementById('refresh-leads-btn').addEventListener('click', () => {
+                this.loadLeads();
+            });
+
+        } catch (error) {
+            console.error('Error loading leads:', error);
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-person-plus text-success"></i> Website Leads</h1>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" id="refresh-leads-btn" onclick="adminApp.loadLeads()">
+                            <i class="bi bi-arrow-clockwise"></i> Verversen
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Fout bij laden van leads:</strong> ${error.message}
+                    <button class="btn btn-outline-danger btn-sm ms-2" onclick="adminApp.loadLeads()">Opnieuw proberen</button>
+                </div>
+            `;
+        }
+    }
+
+    // Lead Management Functions
+    async viewLead(leadId) {
+        try {
+            const lead = await this.apiCall('GET', `/api/leads/${leadId}`);
+            
+            // Create modal
+            const modalHtml = `
+                <div class="modal fade" id="viewLeadModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-person-circle"></i> 
+                                    Lead Details: ${lead.first_name || ''} ${lead.last_name || ''}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Persoonlijke Gegevens</h6>
+                                        <table class="table table-sm">
+                                            <tr><td><strong>Naam:</strong></td><td>${lead.first_name || ''} ${lead.last_name || ''}</td></tr>
+                                            <tr><td><strong>Email:</strong></td><td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : 'Niet opgegeven'}</td></tr>
+                                            <tr><td><strong>Telefoon:</strong></td><td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : 'Niet opgegeven'}</td></tr>
+                                            <tr><td><strong>Status:</strong></td><td><span class="badge bg-primary">${lead.status}</span></td></tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Service Informatie</h6>
+                                        <table class="table table-sm">
+                                            <tr><td><strong>Gewenste service:</strong></td><td>${lead.service_type || 'Niet opgegeven'}</td></tr>
+                                            <tr><td><strong>Voertuig info:</strong></td><td>${lead.vehicle_info || 'Niet opgegeven'}</td></tr>
+                                            <tr><td><strong>Aangemaakt:</strong></td><td>${new Date(lead.created_at).toLocaleString('nl-NL')}</td></tr>
+                                            <tr><td><strong>Laatst bijgewerkt:</strong></td><td>${new Date(lead.updated_at).toLocaleString('nl-NL')}</td></tr>
+                                        </table>
+                                    </div>
+                                </div>
+                                ${lead.message ? `
+                                    <div class="mt-3">
+                                        <h6>Bericht</h6>
+                                        <div class="p-3 bg-light rounded">
+                                            ${lead.message.replace(/\n/g, '<br>')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-warning" onclick="adminApp.generateQuoteFromLead('${lead.id}')">
+                                    <i class="bi bi-file-earmark-text"></i> Offerte Genereren
+                                </button>
+                                <button type="button" class="btn btn-outline-success" onclick="adminApp.updateLeadStatus('${lead.id}', 'contacted')" ${lead.status !== 'new' ? 'disabled' : ''}>
+                                    <i class="bi bi-telephone"></i> Markeer als Gecontacteerd
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="adminApp.convertLead('${lead.id}')" ${lead.status === 'converted' ? 'disabled' : ''}>
+                                    <i class="bi bi-arrow-right-circle"></i> Omzetten naar Klant
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal
+            document.querySelectorAll('#viewLeadModal').forEach(m => m.remove());
+            
+            // Add modal to DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('viewLeadModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error viewing lead:', error);
+            this.showAlert('Fout bij laden van lead details', 'danger');
+        }
+    }
+
+    async updateLeadStatus(leadId, newStatus) {
+        try {
+            await this.apiCall('PUT', `/api/leads/${leadId}/status`, { status: newStatus });
+            this.showAlert('Lead status succesvol bijgewerkt', 'success');
+            
+            // Close modal if open
+            const modal = bootstrap.Modal.getInstance(document.getElementById('viewLeadModal'));
+            if (modal) modal.hide();
+            
+            // Reload leads
+            await this.loadLeads();
+            
+        } catch (error) {
+            console.error('Error updating lead status:', error);
+            this.showAlert('Fout bij bijwerken van lead status', 'danger');
+        }
+    }
+
+    async convertLead(leadId) {
+        if (!confirm('Weet je zeker dat je deze lead wilt omzetten naar een klant?')) {
+            return;
+        }
+        
+        try {
+            const customer = await this.apiCall('POST', `/api/leads/${leadId}/convert-to-customer`);
+            this.showAlert(`Lead succesvol omgezet naar klant: ${customer.first_name} ${customer.last_name}`, 'success');
+            
+            // Close modal if open
+            const modal = bootstrap.Modal.getInstance(document.getElementById('viewLeadModal'));
+            if (modal) modal.hide();
+            
+            // Reload leads
+            await this.loadLeads();
+            
+        } catch (error) {
+            console.error('Error converting lead:', error);
+            this.showAlert('Fout bij omzetten van lead naar klant', 'danger');
+        }
+    }
+
+    async generateQuoteFromLead(leadId) {
+        try {
+            // Load lead data
+            const lead = await this.apiCall('GET', `/api/leads/${leadId}`);
+            // Load available services
+            const servicesResult = await this.apiCall('GET', '/api/services');
+            const services = servicesResult.services || [];
+
+            // Group services by category
+            const servicesByCategory = services.reduce((groups, service) => {
+                const category = service.category || 'other';
+                if (!groups[category]) groups[category] = [];
+                groups[category].push(service);
+                return groups;
+            }, {});
+
+            const categoryLabels = {
+                'signature': '🌟 Signature Detailing',
+                'cleaning': '🧽 Reiniging & Onderhoud', 
+                'correction': '✨ Paint Correction',
+                'protection': '🛡️ Bescherming',
+                'restoration': '🔧 Restauratie',
+                'addon': '➕ Extra Services',
+                'other': '📋 Overige'
+            };
+
+            // Pre-select services based on lead's service_type
+            const getPreselectedServices = (serviceType) => {
+                if (!serviceType) return [];
+                const type = serviceType.toLowerCase();
+                const preselected = [];
+                
+                if (type.includes('handwash') || type.includes('wash')) {
+                    preselected.push(services.find(s => s.name.includes('Hand Wash')));
+                }
+                if (type.includes('interior')) {
+                    preselected.push(services.find(s => s.name.includes('Interior Deep')));
+                }
+                if (type.includes('polishing') || type.includes('polish')) {
+                    preselected.push(services.find(s => s.name.includes('Paint Correction')));
+                }
+                if (type.includes('signature')) {
+                    preselected.push(services.find(s => s.name.includes('Standard Signature')));
+                }
+                if (type.includes('ceramic')) {
+                    preselected.push(services.find(s => s.name.includes('Ceramic Coating (1 jaar)')));
+                }
+                if (type.includes('engine')) {
+                    preselected.push(services.find(s => s.name.includes('Engine Bay')));
+                }
+                
+                return preselected.filter(Boolean);
+            };
+
+            const preselectedServices = getPreselectedServices(lead.service_type);
+
+            // Create quote generation modal
+            const modalHtml = `
+                <div class="modal fade" id="generateQuoteModal" tabindex="-1">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-file-earmark-text text-warning"></i> 
+                                    Offerte Genereren voor ${lead.first_name || ''} ${lead.last_name || ''}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="generateQuoteForm">
+                                    <input type="hidden" id="leadId" value="${leadId}">
+                                    
+                                    <!-- Customer Info (pre-filled from lead) -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <h6><i class="bi bi-person-circle"></i> Klant Gegevens</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label">Voornaam</label>
+                                                <input type="text" class="form-control" id="quoteFirstName" value="${lead.first_name || ''}" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Achternaam</label>
+                                                <input type="text" class="form-control" id="quoteLastName" value="${lead.last_name || ''}" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Email</label>
+                                                <input type="email" class="form-control" id="quoteEmail" value="${lead.email || ''}" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Telefoon</label>
+                                                <input type="tel" class="form-control" id="quotePhone" value="${lead.phone || ''}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6><i class="bi bi-car-front"></i> Voertuig Informatie</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label">Voertuig Info (uit lead)</label>
+                                                <textarea class="form-control" id="quoteVehicleInfo" rows="2">${lead.vehicle_info || ''}</textarea>
+                                                <small class="text-muted">Voertuig informatie uit de originele aanvraag</small>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Geldig tot</label>
+                                                <input type="date" class="form-control" id="quoteValidUntil" value="${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}">
+                                                <small class="text-muted">Standaard 30 dagen vanaf vandaag</small>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Notities</label>
+                                                <textarea class="form-control" id="quoteNotes" rows="2" placeholder="Extra notities voor deze offerte..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Service Selection -->
+                                    <h6><i class="bi bi-list-check"></i> Services Selecteren</h6>
+                                    <p class="text-muted mb-3">Selecteer de services voor deze offerte. Gebaseerd op de lead wordt automatisch voorgeselecteerd: <strong>${lead.service_type || 'Geen specifieke service'}</strong></p>
+                                    
+                                    <div id="serviceSelection">
+                                        ${Object.entries(servicesByCategory).map(([category, categoryServices]) => `
+                                            <div class="card mb-3">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0">${categoryLabels[category] || category}</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        ${categoryServices.map(service => {
+                                                            const isPreselected = preselectedServices.some(p => p && p.id === service.id);
+                                                            return `
+                                                                <div class="col-md-6 col-lg-4 mb-2">
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input service-checkbox" type="checkbox" 
+                                                                               id="service_${service.id}" value="${service.id}" 
+                                                                               data-price="${service.base_price}" data-name="${service.name}"
+                                                                               ${isPreselected ? 'checked' : ''}>
+                                                                        <label class="form-check-label w-100" for="service_${service.id}">
+                                                                            <div class="d-flex justify-content-between">
+                                                                                <span class="fw-semibold">${service.name}</span>
+                                                                                <span class="text-success">€${parseFloat(service.base_price).toFixed(2)}</span>
+                                                                            </div>
+                                                                            <small class="text-muted d-block">${service.description || ''}</small>
+                                                                            ${service.duration_minutes ? `<small class="text-info">~${Math.round(service.duration_minutes/60)}u</small>` : ''}
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            `;
+                                                        }).join('')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+
+                                    <!-- Quote Summary -->
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6><i class="bi bi-calculator"></i> Offerte Samenvatting</h6>
+                                            <div id="quoteSummary">
+                                                <p class="text-muted">Selecteer services om een samenvatting te zien...</p>
+                                            </div>
+                                            <hr>
+                                            ${this.systemSettings.vat_enabled ? `
+                                            <div class="d-flex justify-content-between">
+                                                <span>Subtotaal:</span>
+                                                <span id="quoteSubtotal">€0.00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>BTW (${this.systemSettings.vat_percentage}%):</span>
+                                                <span id="quoteVAT">€0.00</span>
+                                            </div>
+                                            <hr class="my-2">
+                                            ` : ''}
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="fw-bold">${this.systemSettings.vat_enabled ? 'Totaal inkl. BTW:' : 'Totaal:'}</span>
+                                                <span class="fw-bold fs-5 text-success" id="quoteTotal">€0.00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-success" id="createQuoteBtn">
+                                    <i class="bi bi-check-lg"></i> Offerte Aanmaken
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal
+            document.querySelectorAll('#generateQuoteModal').forEach(m => m.remove());
+            
+            // Add modal to DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('generateQuoteModal'));
+            modal.show();
+
+            // Setup event handlers
+            this.setupQuoteGenerationHandlers();
+            
+            // Update summary with preselected items
+            this.updateQuoteSummary();
+
+        } catch (error) {
+            console.error('Error generating quote from lead:', error);
+            this.showAlert('Fout bij laden van offerte gegevens', 'danger');
+        }
+    }
+
+    setupQuoteGenerationHandlers() {
+        // Update summary when services are selected/deselected
+        document.querySelectorAll('.service-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.updateQuoteSummary();
+            });
+        });
+
+        // Create quote button handler
+        document.getElementById('createQuoteBtn').addEventListener('click', () => {
+            this.createQuoteFromForm();
+        });
+    }
+
+    updateQuoteSummary() {
+        const selectedServices = [];
+        let subtotal = 0;
+
+        document.querySelectorAll('.service-checkbox:checked').forEach(checkbox => {
+            const price = parseFloat(checkbox.dataset.price);
+            const name = checkbox.dataset.name;
+            selectedServices.push({ name, price });
+            subtotal += price;
+        });
+
+        const summaryEl = document.getElementById('quoteSummary');
+        const totalEl = document.getElementById('quoteTotal');
+
+        // Calculate VAT if enabled
+        let vatAmount = 0;
+        let totalPrice = subtotal;
+        
+        if (this.systemSettings.vat_enabled && subtotal > 0) {
+            vatAmount = subtotal * (this.systemSettings.vat_percentage / 100);
+            totalPrice = subtotal + vatAmount;
+        }
+
+        if (selectedServices.length === 0) {
+            summaryEl.innerHTML = '<p class="text-muted">Selecteer services om een samenvatting te zien...</p>';
+            totalEl.textContent = '€0.00';
+            
+            // Reset VAT elements if they exist
+            const subtotalEl = document.getElementById('quoteSubtotal');
+            const vatEl = document.getElementById('quoteVAT');
+            if (subtotalEl) subtotalEl.textContent = '€0.00';
+            if (vatEl) vatEl.textContent = '€0.00';
+        } else {
+            summaryEl.innerHTML = `
+                <div class="row">
+                    ${selectedServices.map(service => `
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between">
+                                <span>${service.name}</span>
+                                <span class="text-success">€${service.price.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Update all price elements
+            totalEl.textContent = `€${totalPrice.toFixed(2)}`;
+            
+            const subtotalEl = document.getElementById('quoteSubtotal');
+            const vatEl = document.getElementById('quoteVAT');
+            if (subtotalEl) subtotalEl.textContent = `€${subtotal.toFixed(2)}`;
+            if (vatEl) vatEl.textContent = `€${vatAmount.toFixed(2)}`;
+        }
+    }
+
+    async createQuoteFromForm() {
+        try {
+            console.log('Starting quote creation...');
+            const createBtn = document.getElementById('createQuoteBtn');
+            const originalText = createBtn.innerHTML;
+            
+            // Show loading state
+            createBtn.disabled = true;
+            createBtn.innerHTML = '<i class="bi bi-spinner spinner-border spinner-border-sm"></i> Aanmaken...';
+
+            // Gather form data
+            const leadId = document.getElementById('leadId').value;
+            const firstName = document.getElementById('quoteFirstName').value;
+            const lastName = document.getElementById('quoteLastName').value;
+            const email = document.getElementById('quoteEmail').value;
+            const phone = document.getElementById('quotePhone').value;
+            const vehicleInfo = document.getElementById('quoteVehicleInfo').value;
+            const validUntil = document.getElementById('quoteValidUntil').value;
+            const notes = document.getElementById('quoteNotes').value;
+
+            // Get selected services
+            const selectedServices = [];
+            document.querySelectorAll('.service-checkbox:checked').forEach(checkbox => {
+                selectedServices.push({
+                    service_id: checkbox.value,
+                    quantity: 1,
+                    unit_price: parseFloat(checkbox.dataset.price),
+                    total_price: parseFloat(checkbox.dataset.price),
+                    description: checkbox.dataset.name
+                });
+            });
+
+            console.log('Selected services:', selectedServices.length);
+            if (selectedServices.length === 0) {
+                throw new Error('Selecteer minimaal één service voor de offerte');
+            }
+
+            // Create or find customer first
+            let customer;
+            try {
+                // Try to convert lead to customer first
+                customer = await this.apiCall('POST', `/api/leads/${leadId}/convert-to-customer`);
+            } catch (error) {
+                console.log('Lead conversion error:', error.message);
+                if (error.message && error.message.includes('al omgezet')) {
+                    // Lead already converted, find customer by email
+                    const customersResult = await this.apiCall('GET', `/api/customers?search=${encodeURIComponent(email)}`);
+                    customer = customersResult.customers.find(c => c.email.toLowerCase() === email.toLowerCase());
+                    if (!customer) {
+                        // If not found by email, try creating a new customer
+                        customer = await this.apiCall('POST', '/api/customers', {
+                            first_name: firstName,
+                            last_name: lastName,
+                            email: email,
+                            phone: phone,
+                            notes: `Created from website lead ${leadId} - ${vehicleInfo || 'No vehicle info'}`
+                        });
+                    }
+                } else {
+                    throw error;
+                }
+            }
+
+            // Calculate totals
+            const subtotal = selectedServices.reduce((sum, item) => sum + item.total_price, 0);
+            const taxAmount = subtotal * 0.21; // 21% BTW
+            const totalAmount = subtotal + taxAmount;
+
+            // Create quote
+            const quoteData = {
+                customer_id: customer.id,
+                notes: `Offerte voor ${firstName} ${lastName}` + (notes ? `\n\n${notes}` : '') + (vehicleInfo ? `\n\nVoertuig: ${vehicleInfo}` : '') + `\n\nGegenereerd vanuit website lead`,
+                valid_until: validUntil,
+                services: selectedServices
+            };
+
+            console.log('Sending quote data:', JSON.stringify(quoteData, null, 2));
+            
+            const quote = await this.apiCall('POST', '/api/quotes', quoteData);
+
+            alert(`✅ Offerte ${quote.quote_number} succesvol aangemaakt voor €${totalAmount.toFixed(2)}!`);
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuoteModal'));
+            if (modal) modal.hide();
+
+            // Close lead modal if open
+            const leadModal = bootstrap.Modal.getInstance(document.getElementById('viewLeadModal'));
+            if (leadModal) leadModal.hide();
+
+            // Reload leads to update status
+            await this.loadLeads();
+
+            // Optionally navigate to quotes section to show the new quote
+            // this.showSection('quotes');
+
+        } catch (error) {
+            console.error('Error creating quote:', error);
+            alert(`❌ Fout bij aanmaken offerte: ${error.message}`);
+        } finally {
+            // Reset button state
+            const createBtn = document.getElementById('createQuoteBtn');
+            if (createBtn) {
+                createBtn.disabled = false;
+                createBtn.innerHTML = '<i class="bi bi-check-lg"></i> Offerte Aanmaken';
+            }
+        }
     }
 
     // Expenses (Inkoop) Management
@@ -1465,6 +2474,273 @@ class AdminApp {
         `;
     }
 
+    // System Settings
+    async loadSettings() {
+        const section = document.getElementById('settings-section');
+        
+        try {
+            // Load current settings
+            const settings = await this.loadSystemSettings();
+            
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-gear text-secondary"></i> Systeem Instellingen</h1>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-8 mx-auto">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-calculator text-warning"></i> BTW & Belasting Instellingen
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="vat-enabled" 
+                                               ${settings.vat_enabled ? 'checked' : ''}>
+                                        <label class="form-check-label" for="vat-enabled">
+                                            <strong>BTW inschakelen</strong>
+                                        </label>
+                                        <div class="form-text">
+                                            Wanneer uitgeschakeld verdwijnen alle BTW vermeldingen van offertes en facturen
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4 ${settings.vat_enabled ? '' : 'd-none'}" id="vat-settings">
+                                    <label for="vat-percentage" class="form-label">BTW Percentage</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="vat-percentage" 
+                                               value="${settings.vat_percentage || 21}" min="0" max="100" step="0.01">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <div class="form-text">
+                                        Standaard BTW percentage voor nieuwe offertes en facturen
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>Let op:</strong> Wijzigingen worden toegepast op alle nieuwe offertes en facturen. 
+                                    Bestaande documenten behouden hun oorspronkelijke BTW instellingen.
+                                </div>
+                                
+                                <div class="d-flex justify-content-end">
+                                    <button type="button" class="btn btn-primary" id="save-settings-btn">
+                                        <i class="bi bi-check"></i> Instellingen Opslaan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-building text-info"></i> Bedrijfsinformatie
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Bedrijfsnaam</label>
+                                        <input type="text" class="form-control" id="company-name" 
+                                               value="${settings.company_name || 'Carcleaning010'}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">BTW Nummer</label>
+                                        <input type="text" class="form-control" id="company-vat-number" 
+                                               value="${settings.company_vat_number || ''}">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Telefoon</label>
+                                        <input type="text" class="form-control" id="company-phone" 
+                                               value="${settings.company_phone || '+31 6 36 52 97 93'}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="company-email" 
+                                               value="${settings.company_email || 'info@carcleaning010.nl'}">
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Adres</label>
+                                    <textarea class="form-control" id="company-address" rows="2">${settings.company_address || ''}</textarea>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end">
+                                    <button type="button" class="btn btn-outline-primary" id="save-company-info-btn">
+                                        <i class="bi bi-check"></i> Bedrijfsinfo Opslaan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.setupSettingsEventListeners();
+            
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-gear text-secondary"></i> Systeem Instellingen</h1>
+                </div>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Fout bij het laden van instellingen: ${error.message}
+                </div>
+            `;
+        }
+    }
+    
+    async loadSystemSettingsToMemory() {
+        try {
+            const settings = await this.loadSystemSettings();
+            this.systemSettings = { ...this.systemSettings, ...settings };
+            console.log('✅ System settings loaded:', this.systemSettings);
+        } catch (error) {
+            console.error('Error loading system settings to memory:', error);
+        }
+    }
+
+    async loadSystemSettings() {
+        try {
+            const response = await fetch('/api/settings', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error loading system settings:', error);
+            // Return defaults if API fails
+            return {
+                vat_enabled: false,
+                vat_percentage: 21,
+                company_name: 'Carcleaning010',
+                company_phone: '+31 6 36 52 97 93',
+                company_email: 'info@carcleaning010.nl',
+                company_vat_number: '',
+                company_address: ''
+            };
+        }
+    }
+    
+    setupSettingsEventListeners() {
+        // VAT toggle
+        const vatToggle = document.getElementById('vat-enabled');
+        vatToggle?.addEventListener('change', (e) => {
+            const vatSettings = document.getElementById('vat-settings');
+            if (e.target.checked) {
+                vatSettings?.classList.remove('d-none');
+            } else {
+                vatSettings?.classList.add('d-none');
+            }
+        });
+        
+        // Save settings button
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        saveSettingsBtn?.addEventListener('click', () => this.saveSettings());
+        
+        // Save company info button
+        const saveCompanyBtn = document.getElementById('save-company-info-btn');
+        saveCompanyBtn?.addEventListener('click', () => this.saveCompanyInfo());
+    }
+    
+    async saveSettings() {
+        console.log('💾 Save system settings');
+        
+        const vatEnabled = document.getElementById('vat-enabled').checked;
+        const vatPercentage = parseFloat(document.getElementById('vat-percentage').value) || 21;
+        
+        const settings = {
+            vat_enabled: vatEnabled,
+            vat_percentage: vatPercentage
+        };
+        
+        // Show loading
+        const loadingToast = this.showPDFLoadingToast('Instellingen opslaan...');
+        
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('✅ Instellingen succesvol opgeslagen!', 'success');
+            
+            // Store in memory for immediate use
+            this.systemSettings = { ...this.systemSettings, ...settings };
+            
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('❌ Fout bij opslaan instellingen', 'danger');
+        }
+    }
+    
+    async saveCompanyInfo() {
+        console.log('💾 Save company info');
+        
+        const companyInfo = {
+            company_name: document.getElementById('company-name').value,
+            company_vat_number: document.getElementById('company-vat-number').value,
+            company_phone: document.getElementById('company-phone').value,
+            company_email: document.getElementById('company-email').value,
+            company_address: document.getElementById('company-address').value
+        };
+        
+        // Show loading
+        const loadingToast = this.showPDFLoadingToast('Bedrijfsinfo opslaan...');
+        
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(companyInfo)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('✅ Bedrijfsinformatie succesvol opgeslagen!', 'success');
+            
+            // Store in memory for immediate use
+            this.systemSettings = { ...this.systemSettings, ...companyInfo };
+            
+        } catch (error) {
+            console.error('Error saving company info:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('❌ Fout bij opslaan bedrijfsinformatie', 'danger');
+        }
+    }
+
     // Utility methods
     async apiCall(method, endpoint, data = null) {
         const options = {
@@ -1491,7 +2767,8 @@ class AdminApp {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.error || 'API call failed');
+            console.error('API Error Response:', error);
+            throw new Error(error.error || error.message || 'API call failed');
         }
 
         return response.json();
@@ -1583,6 +2860,542 @@ class AdminApp {
         
         const toast = new bootstrap.Toast(toastEl);
         toast.show();
+    }
+
+    // PDF Loading Animation Functions
+    showPDFLoadingToast(action = 'PDF genereren...') {
+        console.log(`📄 PDF Loading: ${action}`);
+        
+        // Create loading overlay
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'pdf-loading-overlay';
+        loadingOverlay.className = 'pdf-loading-overlay';
+        loadingOverlay.innerHTML = `
+            <div class="pdf-loading-content">
+                <div class="pdf-loading-spinner">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div class="pdf-loading-text">
+                    <h5><i class="bi bi-file-pdf text-danger"></i> ${action}</h5>
+                    <p class="text-muted mb-0">Even geduld terwijl we uw offerte voorbereiden...</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(loadingOverlay);
+        
+        // Add CSS if not already present
+        if (!document.getElementById('pdf-loading-styles')) {
+            const style = document.createElement('style');
+            style.id = 'pdf-loading-styles';
+            style.textContent = `
+                .pdf-loading-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.8);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                    animation: fadeIn 0.3s ease-in;
+                }
+                
+                .pdf-loading-content {
+                    background: white;
+                    border-radius: 15px;
+                    padding: 3rem;
+                    text-align: center;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                    animation: slideIn 0.4s ease-out;
+                    min-width: 300px;
+                }
+                
+                .pdf-loading-spinner {
+                    margin-bottom: 2rem;
+                }
+                
+                .pdf-loading-spinner .spinner-border {
+                    width: 3rem;
+                    height: 3rem;
+                    border-width: 0.3em;
+                }
+                
+                .pdf-loading-text h5 {
+                    color: #020405;
+                    margin-bottom: 1rem;
+                    font-weight: 600;
+                }
+                
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                
+                @keyframes slideIn {
+                    from { 
+                        opacity: 0; 
+                        transform: translateY(-20px) scale(0.95); 
+                    }
+                    to { 
+                        opacity: 1; 
+                        transform: translateY(0) scale(1); 
+                    }
+                }
+                
+                @keyframes slideOut {
+                    from { 
+                        opacity: 1; 
+                        transform: translateY(0) scale(1); 
+                    }
+                    to { 
+                        opacity: 0; 
+                        transform: translateY(-20px) scale(0.95); 
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        return loadingOverlay;
+    }
+    
+    hidePDFLoadingToast(loadingOverlay) {
+        if (loadingOverlay) {
+            loadingOverlay.style.animation = 'fadeIn 0.3s ease-in reverse';
+            setTimeout(() => {
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.parentNode.removeChild(loadingOverlay);
+                }
+            }, 300);
+        }
+    }
+
+    // Invoice functionality
+    async showAddInvoiceModal() {
+        console.log('📋 Show add invoice modal');
+        
+        try {
+            // Load customers for selection
+            const customersResponse = await fetch('/api/customers', {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            
+            if (!customersResponse.ok) {
+                throw new Error('Fout bij laden klanten');
+            }
+            
+            const customersData = await customersResponse.json();
+            const customers = customersData.customers || [];
+            
+            // Show invoice creation modal
+            const modal = this.createInvoiceModal(customers);
+            document.body.appendChild(modal);
+            
+            if (typeof bootstrap !== 'undefined') {
+                new bootstrap.Modal(modal).show();
+            }
+            
+        } catch (error) {
+            console.error('Error showing add invoice modal:', error);
+            this.showToast('Fout bij openen nieuwe factuur', 'danger');
+        }
+    }
+    
+    createInvoiceModal(customers) {
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'invoiceModal';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-receipt text-info"></i> Nieuwe Factuur Aanmaken
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="invoice-form">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label">Klant *</label>
+                                    <select class="form-select" name="customer_id" required>
+                                        <option value="">Selecteer klant...</option>
+                                        ${customers.map(customer => `
+                                            <option value="${customer.id}">
+                                                ${customer.first_name} ${customer.last_name} - ${customer.email}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Vervaldatum</label>
+                                    <input type="date" class="form-control" name="due_date" 
+                                           value="${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}">
+                                </div>
+                                ${this.systemSettings.vat_enabled ? `
+                                <div class="col-md-3">
+                                    <label class="form-label">BTW %</label>
+                                    <input type="number" class="form-control" name="tax_percentage" 
+                                           value="${this.systemSettings.vat_percentage}" min="0" max="100" step="0.01">
+                                </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6>Factuurregels</h6>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="add-invoice-item">
+                                        <i class="bi bi-plus"></i> Regel Toevoegen
+                                    </button>
+                                </div>
+                                <div id="invoice-items-container">
+                                    <div class="invoice-item row align-items-center mb-2">
+                                        <div class="col-md-4">
+                                            <input type="text" class="form-control" name="items[0][description]" 
+                                                   placeholder="Omschrijving *" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <input type="number" class="form-control item-quantity" name="items[0][quantity]" 
+                                                   placeholder="Aantal" value="1" min="0.01" step="0.01" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <input type="number" class="form-control item-unit-price" name="items[0][unit_price]" 
+                                                   placeholder="Prijs p/stuk" min="0.01" step="0.01" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <input type="text" class="form-control item-total" 
+                                                   placeholder="Totaal" readonly>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-item" 
+                                                    style="display: none;">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">Opmerkingen</label>
+                                    <textarea class="form-control" name="notes" rows="3" 
+                                              placeholder="Extra opmerkingen voor de factuur..."></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="bg-light p-3 rounded">
+                                        <h6>Factuur Totaal</h6>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Subtotaal:</span>
+                                            <span id="invoice-subtotal">€ 0,00</span>
+                                        </div>
+                                        ${this.systemSettings.vat_enabled ? `
+                                        <div class="d-flex justify-content-between">
+                                            <span>BTW:</span>
+                                            <span id="invoice-tax">€ 0,00</span>
+                                        </div>
+                                        <hr>
+                                        ` : ''}
+                                        <div class="d-flex justify-content-between fw-bold">
+                                            <span>Totaal:</span>
+                                            <span id="invoice-total">€ 0,00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                        <button type="button" class="btn btn-primary" id="save-invoice-btn">
+                            <i class="bi bi-check"></i> Factuur Aanmaken
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Setup invoice modal event listeners
+        this.setupInvoiceModalEvents(modal);
+        
+        return modal;
+    }
+    
+    setupInvoiceModalEvents(modal) {
+        // Add item button
+        const addItemBtn = modal.querySelector('#add-invoice-item');
+        addItemBtn?.addEventListener('click', () => this.addInvoiceItem());
+        
+        // Save invoice button
+        const saveBtn = modal.querySelector('#save-invoice-btn');
+        saveBtn?.addEventListener('click', () => this.saveNewInvoice());
+        
+        // Setup calculation listeners
+        this.setupInvoiceCalculations(modal);
+    }
+    
+    addInvoiceItem() {
+        const container = document.getElementById('invoice-items-container');
+        const itemCount = container.children.length;
+        
+        const newItem = document.createElement('div');
+        newItem.className = 'invoice-item row align-items-center mb-2';
+        newItem.innerHTML = `
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="items[${itemCount}][description]" 
+                       placeholder="Omschrijving *" required>
+            </div>
+            <div class="col-md-2">
+                <input type="number" class="form-control item-quantity" name="items[${itemCount}][quantity]" 
+                       placeholder="Aantal" value="1" min="0.01" step="0.01" required>
+            </div>
+            <div class="col-md-2">
+                <input type="number" class="form-control item-unit-price" name="items[${itemCount}][unit_price]" 
+                       placeholder="Prijs p/stuk" min="0.01" step="0.01" required>
+            </div>
+            <div class="col-md-2">
+                <input type="text" class="form-control item-total" 
+                       placeholder="Totaal" readonly>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-item">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        container.appendChild(newItem);
+        
+        // Setup event listeners for new item
+        this.setupItemCalculations(newItem);
+        this.setupRemoveItemButton(newItem);
+        this.toggleRemoveButtons();
+    }
+    
+    setupInvoiceCalculations(modal) {
+        // Setup calculations for existing items
+        const items = modal.querySelectorAll('.invoice-item');
+        items.forEach(item => {
+            this.setupItemCalculations(item);
+            this.setupRemoveItemButton(item);
+        });
+        
+        // Tax percentage change
+        const taxInput = modal.querySelector('[name="tax_percentage"]');
+        taxInput?.addEventListener('input', () => this.calculateInvoiceTotal());
+        
+        this.toggleRemoveButtons();
+    }
+    
+    setupItemCalculations(item) {
+        const quantityInput = item.querySelector('.item-quantity');
+        const priceInput = item.querySelector('.item-unit-price');
+        
+        const calculateItemTotal = () => {
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const total = quantity * price;
+            
+            const totalInput = item.querySelector('.item-total');
+            totalInput.value = `€ ${total.toFixed(2)}`;
+            
+            this.calculateInvoiceTotal();
+        };
+        
+        quantityInput?.addEventListener('input', calculateItemTotal);
+        priceInput?.addEventListener('input', calculateItemTotal);
+    }
+    
+    setupRemoveItemButton(item) {
+        const removeBtn = item.querySelector('.remove-item');
+        removeBtn?.addEventListener('click', () => {
+            item.remove();
+            this.calculateInvoiceTotal();
+            this.toggleRemoveButtons();
+        });
+    }
+    
+    toggleRemoveButtons() {
+        const items = document.querySelectorAll('.invoice-item');
+        items.forEach((item, index) => {
+            const removeBtn = item.querySelector('.remove-item');
+            if (removeBtn) {
+                removeBtn.style.display = items.length > 1 ? 'block' : 'none';
+            }
+        });
+    }
+    
+    calculateInvoiceTotal() {
+        const items = document.querySelectorAll('.invoice-item');
+        let subtotal = 0;
+        
+        items.forEach(item => {
+            const quantity = parseFloat(item.querySelector('.item-quantity').value) || 0;
+            const price = parseFloat(item.querySelector('.item-unit-price').value) || 0;
+            subtotal += quantity * price;
+        });
+        
+        let taxAmount = 0;
+        let total = subtotal;
+        
+        if (this.systemSettings.vat_enabled) {
+            const taxInput = document.querySelector('[name="tax_percentage"]');
+            const taxPercentage = taxInput ? parseFloat(taxInput.value) || 0 : this.systemSettings.vat_percentage;
+            taxAmount = subtotal * (taxPercentage / 100);
+            total = subtotal + taxAmount;
+        }
+        
+        document.getElementById('invoice-subtotal').textContent = `€ ${subtotal.toFixed(2).replace('.', ',')}`;
+        
+        const taxElement = document.getElementById('invoice-tax');
+        if (taxElement) {
+            taxElement.textContent = `€ ${taxAmount.toFixed(2).replace('.', ',')}`;
+        }
+        
+        document.getElementById('invoice-total').textContent = `€ ${total.toFixed(2).replace('.', ',')}`;
+    }
+    
+    async saveNewInvoice() {
+        console.log('💾 Save new invoice');
+        
+        const form = document.getElementById('invoice-form');
+        const formData = new FormData(form);
+        
+        // Collect items data
+        const items = [];
+        const itemElements = document.querySelectorAll('.invoice-item');
+        
+        itemElements.forEach((item, index) => {
+            const description = item.querySelector(`[name="items[${index}][description]"]`)?.value;
+            const quantity = parseFloat(item.querySelector(`[name="items[${index}][quantity]"]`)?.value) || 0;
+            const unitPrice = parseFloat(item.querySelector(`[name="items[${index}][unit_price]"]`)?.value) || 0;
+            
+            if (description && quantity > 0 && unitPrice > 0) {
+                items.push({
+                    description: description.trim(),
+                    quantity: quantity,
+                    unit_price: unitPrice,
+                    total_price: quantity * unitPrice
+                });
+            }
+        });
+        
+        if (items.length === 0) {
+            this.showToast('Voeg minimaal één factuuregel toe', 'warning');
+            return;
+        }
+        
+        const invoiceData = {
+            customer_id: formData.get('customer_id'),
+            due_date: formData.get('due_date') || null,
+            tax_percentage: this.systemSettings.vat_enabled ? 
+                (parseFloat(formData.get('tax_percentage')) || this.systemSettings.vat_percentage) : 0,
+            notes: formData.get('notes') || '',
+            items: items
+        };
+        
+        if (!invoiceData.customer_id) {
+            this.showToast('Selecteer een klant', 'warning');
+            return;
+        }
+        
+        // Show loading
+        const loadingToast = this.showPDFLoadingToast('Factuur aanmaken...');
+        
+        try {
+            const response = await fetch('/api/invoices', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(invoiceData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const invoice = await response.json();
+            
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast(`✅ Factuur ${invoice.invoice_number} succesvol aangemaakt!`, 'success');
+            
+            // Close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('invoiceModal'));
+            modal?.hide();
+            document.getElementById('invoiceModal')?.remove();
+            
+            this.loadInvoices();
+            
+        } catch (error) {
+            console.error('Error saving invoice:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('Fout bij aanmaken factuur', 'danger');
+        }
+    }
+    
+    // Filter and action functions
+    filterInvoices() {
+        console.log('🔍 Invoice filtering would happen here');
+        this.showToast('Filter functionaliteit komt binnenkort!', 'info');
+    }
+    
+    async viewInvoice(id) {
+        console.log('👁️ View invoice:', id);
+        this.showToast(`Factuur ${id} bekijken komt binnenkort!`, 'info');
+    }
+    
+    async viewInvoicePDF(id) {
+        console.log('📄 View invoice PDF:', id);
+        
+        const loadingToast = this.showPDFLoadingToast('Factuur PDF openen...');
+        
+        try {
+            const response = await fetch(`/api/invoices/${id}/pdf`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            
+            setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+            
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('📄 Factuur PDF geopend!', 'success');
+            
+        } catch (error) {
+            console.error('Error viewing invoice PDF:', error);
+            this.hidePDFLoadingToast(loadingToast);
+            this.showToast('❌ Fout bij openen factuur PDF', 'danger');
+        }
+    }
+    
+    async editInvoice(id) {
+        console.log('✏️ Edit invoice:', id);
+        this.showToast(`Factuur ${id} bewerken komt binnenkort!`, 'info');
+    }
+    
+    async deleteInvoice(id) {
+        console.log('🗑️ Delete invoice:', id);
+        if (confirm(`Weet je zeker dat je factuur #${id} wilt verwijderen?`)) {
+            this.showToast(`Factuur ${id} verwijderen komt binnenkort!`, 'warning');
+        }
     }
 
     // Customers functionality

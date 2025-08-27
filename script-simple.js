@@ -184,9 +184,14 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('Sending form data:', formObject);
             
-            // Submit to admin API
-            console.log('Starting API call to:', 'https://carcleaning010.nl/admin/api/website-leads');
-            fetch('https://carcleaning010.nl/admin/api/website-leads', {
+            // Submit to admin API - Detect if running locally
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const apiUrl = isLocalhost 
+                ? 'http://localhost:3001/api/website-leads'
+                : 'https://carcleaning010.nl/admin/api/website-leads';
+            
+            console.log('Starting API call to:', apiUrl);
+            fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -225,7 +230,21 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(function(error) {
                 console.error('API Error:', error);
-                alert('Er is een fout opgetreden. Probeer het opnieuw of neem direct contact op via WhatsApp.');
+                
+                // Extract Dutch error message from server response if available
+                let errorMessage = 'Er is een fout opgetreden. Probeer het opnieuw of neem direct contact op via WhatsApp.';
+                
+                if (error.message) {
+                    // Check if error contains JSON with Dutch error message
+                    const jsonMatch = error.message.match(/\{"error":"([^"]+)"\}/);
+                    if (jsonMatch && jsonMatch[1]) {
+                        errorMessage = jsonMatch[1];
+                    } else if (error.message.includes('HTTP 409')) {
+                        errorMessage = 'Er is al een aanvraag verzonden met dit email adres in de afgelopen 24 uur. Probeer een ander email adres of neem direct contact op via WhatsApp.';
+                    }
+                }
+                
+                alert(errorMessage);
             })
             .finally(function() {
                 // Reset button state

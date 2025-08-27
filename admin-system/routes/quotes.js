@@ -117,16 +117,17 @@ router.get('/:id', async (req, res) => {
                 json_agg(
                     json_build_object(
                         'id', qi.id,
-                        'service_name', qi.service_name,
+                        'service_name', COALESCE(s.name, 'Aangepaste service'),
                         'description', qi.description,
                         'quantity', qi.quantity,
                         'unit_price', qi.unit_price,
                         'total_price', qi.total_price
-                    ) ORDER BY qi.created_at
+                    ) ORDER BY qi.id
                 ) as items
             FROM quotes q
             JOIN customers c ON q.customer_id = c.id
             LEFT JOIN quote_items qi ON q.id = qi.quote_id
+            LEFT JOIN services s ON s.id = qi.service_id
             WHERE q.id = $1
             GROUP BY q.id, c.id
         `, [quoteId]);
@@ -157,12 +158,11 @@ router.post('/', validateQuote, async (req, res) => {
     try {
         const {
             customer_id,
-            description,
             notes,
             valid_until,
             discount_percentage = 0,
             tax_percentage = 21,
-            items = []
+            services = []
         } = req.body;
 
         const result = await transaction(async (client) => {
@@ -177,7 +177,7 @@ router.post('/', validateQuote, async (req, res) => {
             const quoteNumber = `Q${nextNumber.toString().padStart(4, '0')}`;
 
             // Bereken totalen
-            const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+            const subtotal = services.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
             const discountAmount = subtotal * (discount_percentage / 100);
             const discountedAmount = subtotal - discountAmount;
             const taxAmount = discountedAmount * (tax_percentage / 100);
@@ -186,39 +186,37 @@ router.post('/', validateQuote, async (req, res) => {
             // Maak offerte aan
             const quoteResult = await client.query(`
                 INSERT INTO quotes (
-                    customer_id, quote_number, description, notes, 
-                    subtotal_amount, discount_percentage, discount_amount,
-                    tax_percentage, tax_amount, total_amount, valid_until
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    customer_id, quote_number, notes, 
+                    subtotal, tax_amount, total_amount, valid_until
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING *
             `, [
-                customer_id, quoteNumber, description, notes,
-                subtotal, discount_percentage, discountAmount,
-                tax_percentage, taxAmount, totalAmount, valid_until
+                customer_id, quoteNumber, notes,
+                subtotal, taxAmount, totalAmount, valid_until
             ]);
 
             const quote = quoteResult.rows[0];
 
             // Voeg quote items toe
-            if (items.length > 0) {
+            if (services.length > 0) {
                 const itemsQuery = `
                     INSERT INTO quote_items (
-                        quote_id, service_name, description, 
+                        quote_id, service_id, description, 
                         quantity, unit_price, total_price
-                    ) VALUES ${items.map((_, index) => {
+                    ) VALUES ${services.map((_, index) => {
                         const baseIndex = index * 6;
                         return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6})`;
                     }).join(', ')}
                     RETURNING *
                 `;
 
-                const itemsParams = items.flatMap(item => [
+                const itemsParams = services.flatMap(item => [
                     quote.id,
-                    item.service_name,
+                    item.service_id,
                     item.description || null,
-                    item.quantity,
+                    item.quantity || 1,
                     item.unit_price,
-                    item.quantity * item.unit_price
+                    item.total_price
                 ]);
 
                 const itemsResult = await client.query(itemsQuery, itemsParams);
@@ -290,7 +288,7 @@ router.put('/:id', validateQuote, async (req, res) => {
             if (items.length > 0) {
                 const itemsQuery = `
                     INSERT INTO quote_items (
-                        quote_id, service_name, description, 
+                        quote_id, service_id, description, 
                         quantity, unit_price, total_price
                     ) VALUES ${items.map((_, index) => {
                         const baseIndex = index * 6;
@@ -301,7 +299,7 @@ router.put('/:id', validateQuote, async (req, res) => {
 
                 const itemsParams = items.flatMap(item => [
                     quote.id,
-                    item.service_name,
+                    item.service_id,
                     item.description || null,
                     item.quantity,
                     item.unit_price,
@@ -380,16 +378,17 @@ router.post('/:id/pdf', async (req, res) => {
                 json_agg(
                     json_build_object(
                         'id', qi.id,
-                        'service_name', qi.service_name,
+                        'service_name', COALESCE(s.name, 'Aangepaste service'),
                         'description', qi.description,
                         'quantity', qi.quantity,
                         'unit_price', qi.unit_price,
                         'total_price', qi.total_price
-                    ) ORDER BY qi.created_at
+                    ) ORDER BY qi.id
                 ) as items
             FROM quotes q
             JOIN customers c ON q.customer_id = c.id
             LEFT JOIN quote_items qi ON q.id = qi.quote_id
+            LEFT JOIN services s ON s.id = qi.service_id
             WHERE q.id = $1
             GROUP BY q.id, c.id
         `, [quoteId]);
@@ -401,8 +400,22 @@ router.post('/:id/pdf', async (req, res) => {
         const quote = result.rows[0];
         quote.items = quote.items.filter(item => item.id !== null);
 
+        // Restructure data for PDF generator
+        const pdfData = {
+            ...quote,
+            customer: {
+                first_name: quote.customer_name ? quote.customer_name.split(' ')[0] : '',
+                last_name: quote.customer_name ? quote.customer_name.split(' ').slice(1).join(' ') : '',
+                email: quote.customer_email,
+                phone: quote.customer_phone,
+                address: quote.address,
+                postal_code: quote.postal_code,
+                city: quote.city
+            }
+        };
+
         // Genereer PDF
-        const pdfBuffer = await generateQuotePDF(quote);
+        const pdfBuffer = await generateQuotePDF(pdfData);
 
         // Stel headers in voor PDF download
         res.setHeader('Content-Type', 'application/pdf');
@@ -428,7 +441,7 @@ router.post('/:id/convert-to-invoice', async (req, res) => {
                 SELECT q.*, 
                        json_agg(
                            json_build_object(
-                               'service_name', qi.service_name,
+                               'service_name', COALESCE(s.name, 'Aangepaste service'),
                                'description', qi.description,
                                'quantity', qi.quantity,
                                'unit_price', qi.unit_price,
@@ -437,6 +450,7 @@ router.post('/:id/convert-to-invoice', async (req, res) => {
                        ) as items
                 FROM quotes q
                 LEFT JOIN quote_items qi ON q.id = qi.quote_id
+            LEFT JOIN services s ON s.id = qi.service_id
                 WHERE q.id = $1
                 GROUP BY q.id
             `, [quoteId]);
@@ -491,11 +505,11 @@ router.post('/:id/convert-to-invoice', async (req, res) => {
             const invoice = invoiceResult.rows[0];
 
             // Voeg factuur items toe
-            const validItems = quote.items.filter(item => item.service_name !== null);
+            const validItems = quote.items.filter(item => item.service_name !== null && item.service_name !== undefined);
             if (validItems.length > 0) {
                 const itemsQuery = `
                     INSERT INTO invoice_items (
-                        invoice_id, service_name, description, 
+                        invoice_id, service_id, description, 
                         quantity, unit_price, total_price
                     ) VALUES ${validItems.map((_, index) => {
                         const baseIndex = index * 6;
@@ -506,7 +520,7 @@ router.post('/:id/convert-to-invoice', async (req, res) => {
 
                 const itemsParams = validItems.flatMap(item => [
                     invoice.id,
-                    item.service_name,
+                    item.service_id || null,
                     item.description,
                     item.quantity,
                     item.unit_price,

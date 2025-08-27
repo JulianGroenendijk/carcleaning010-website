@@ -160,8 +160,8 @@ router.post('/:id/convert-to-customer', async (req, res) => {
             // Maak nieuwe klant aan
             const customerResult = await client.query(`
                 INSERT INTO customers (
-                    first_name, last_name, email, phone, notes, source
-                ) VALUES ($1, $2, $3, $4, $5, 'website_lead')
+                    first_name, last_name, email, phone, notes
+                ) VALUES ($1, $2, $3, $4, $5)
                 RETURNING *
             `, [
                 lead.first_name,
@@ -177,10 +177,9 @@ router.post('/:id/convert-to-customer', async (req, res) => {
             await client.query(`
                 UPDATE website_leads SET 
                     status = 'converted',
-                    customer_id = $1,
                     updated_at = CURRENT_TIMESTAMP 
-                WHERE id = $2
-            `, [customer.id, leadId]);
+                WHERE id = $1
+            `, [leadId]);
 
             return customer;
         });

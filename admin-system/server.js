@@ -30,7 +30,7 @@ app.use(helmet({
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
         ? ['https://carcleaning010.nl', 'https://www.carcleaning010.nl']
-        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080'],
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'http://localhost:8000'],
     credentials: true
 }));
 
@@ -91,6 +91,7 @@ app.use('/api/certificates', verifyToken, require('./routes/certificates'));
 app.use('/api/leads', verifyToken, require('./routes/leads'));
 app.use('/api/dashboard', verifyToken, require('./routes/dashboard'));
 app.use('/api/pdf', verifyToken, require('./routes/pdf'));
+app.use('/api/settings', verifyToken, require('./routes/settings'));
 
 // Website lead endpoint (zonder auth voor website formulier)
 app.use('/api/website-leads', require('./routes/websiteLeads'));

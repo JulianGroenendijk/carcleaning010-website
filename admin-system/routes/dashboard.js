@@ -13,9 +13,10 @@ router.get('/stats', async (req, res) => {
         const stats = await query(`
             SELECT 
                 (SELECT COUNT(*) FROM customers) as customers,
-                (SELECT COUNT(*) FROM appointments WHERE DATE(scheduled_date) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(scheduled_date) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as appointments_this_month,
+                (SELECT COUNT(*) FROM appointments WHERE DATE(appointment_date) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(appointment_date) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as appointments_this_month,
                 (SELECT COUNT(*) FROM quotes WHERE status IN ('draft', 'sent')) as open_quotes,
-                (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND DATE(paid_date) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(paid_date) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as revenue_this_month
+                (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status = 'paid' AND DATE(paid_date) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(paid_date) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as revenue_this_month,
+                (SELECT COUNT(*) FROM website_leads WHERE status = 'new') as new_leads
         `);
 
         res.json(stats.rows[0]);
@@ -50,7 +51,7 @@ router.get('/activity', async (req, res) => {
 
         // Recente afspraken (laatste 5)
         const recentAppointments = await query(`
-            SELECT a.id, a.service_type, a.created_at, c.first_name, c.last_name
+            SELECT a.id, a.location, a.created_at, c.first_name, c.last_name
             FROM appointments a
             JOIN customers c ON a.customer_id = c.id
             ORDER BY a.created_at DESC 
@@ -61,7 +62,7 @@ router.get('/activity', async (req, res) => {
             activities.push({
                 type: 'appointment',
                 title: 'Nieuwe afspraak gepland',
-                description: `${appointment.service_type} voor ${appointment.first_name} ${appointment.last_name}`,
+                description: `${appointment.location || 'Afspraak'} voor ${appointment.first_name} ${appointment.last_name}`,
                 created_at: appointment.created_at
             });
         });
@@ -81,6 +82,23 @@ router.get('/activity', async (req, res) => {
                 title: 'Nieuwe offerte aangemaakt',
                 description: `${quote.quote_number} voor ${quote.first_name} ${quote.last_name}`,
                 created_at: quote.created_at
+            });
+        });
+
+        // Recente website leads (laatste 5)
+        const recentLeads = await query(`
+            SELECT id, first_name, last_name, email, service_type, created_at
+            FROM website_leads
+            ORDER BY created_at DESC 
+            LIMIT 5
+        `);
+
+        recentLeads.rows.forEach(lead => {
+            activities.push({
+                type: 'lead',
+                title: 'Nieuwe website aanvraag',
+                description: `${lead.first_name || ''} ${lead.last_name || ''} - ${lead.service_type || 'Informatie'} (${lead.email})`,
+                created_at: lead.created_at
             });
         });
 

@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
             SELECT *
             FROM services
             ${whereClause}
-            ORDER BY category, sort_order, name
+            ORDER BY category, name
         `, params);
 
         res.json({
