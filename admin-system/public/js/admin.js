@@ -1637,6 +1637,54 @@ class AdminApp {
         alert('Afspraak toevoegen functionaliteit wordt nog geïmplementeerd');
     }
 
+    renderPagination(pagination) {
+        if (!pagination || pagination.total_pages <= 1) {
+            return '';
+        }
+
+        let paginationHTML = '<div class="d-flex justify-content-between align-items-center mt-3">';
+        paginationHTML += `<span>Pagina ${pagination.current_page} van ${pagination.total_pages} (${pagination.total_count} totaal)</span>`;
+        paginationHTML += '<nav><ul class="pagination mb-0">';
+
+        // Previous button
+        paginationHTML += `
+            <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="adminApp.changeAppointmentPage(${pagination.current_page - 1}); return false;" 
+                   ${!pagination.has_prev ? 'tabindex="-1"' : ''}>Vorige</a>
+            </li>
+        `;
+
+        // Page numbers
+        const startPage = Math.max(1, pagination.current_page - 2);
+        const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHTML += `
+                <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="adminApp.changeAppointmentPage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        }
+
+        // Next button
+        paginationHTML += `
+            <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="adminApp.changeAppointmentPage(${pagination.current_page + 1}); return false;"
+                   ${!pagination.has_next ? 'tabindex="-1"' : ''}>Volgende</a>
+            </li>
+        `;
+
+        paginationHTML += '</ul></nav></div>';
+        return paginationHTML;
+    }
+
+    changeAppointmentPage(page) {
+        console.log('📄 Changing to appointments page:', page);
+        // TODO: Implement appointment pagination
+        // For now, just reload appointments
+        this.loadAppointments();
+    }
+
     async loadInvoices() {
         const section = document.getElementById('invoices-section');
         
