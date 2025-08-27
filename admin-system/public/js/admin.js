@@ -144,24 +144,15 @@ class AdminApp {
             this.logout();
         });
 
-        // Navigation
-        document.querySelectorAll('.nav-link[data-section]').forEach(link => {
+        // Navigation - both nav-links and dropdown-items
+        document.querySelectorAll('.nav-link[data-section], .dropdown-item[data-section]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const section = e.currentTarget.dataset.section;
+                console.log(`🔗 Navigation clicked: ${section}`);
                 this.navigateToSection(section);
             });
         });
-        
-        // Settings link (in dropdown, has different class)
-        const settingsLink = document.querySelector('[data-section="settings"]');
-        if (settingsLink) {
-            settingsLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('🔧 Settings clicked via dropdown');
-                this.navigateToSection('settings');
-            });
-        }
 
         // Quick actions
         document.getElementById('refresh-dashboard')?.addEventListener('click', () => {
@@ -250,11 +241,16 @@ class AdminApp {
     }
 
     navigateToSection(section) {
-        // Update navigation
-        document.querySelectorAll('.nav-link').forEach(link => {
+        console.log(`🔗 Navigating to section: ${section}`);
+        
+        // Update navigation - remove active from all nav items
+        document.querySelectorAll('.nav-link, .dropdown-item').forEach(link => {
             link.classList.remove('active');
         });
-        document.querySelector(`[data-section="${section}"]`).classList.add('active');
+        
+        // Add active class to the clicked section (try both nav-link and dropdown-item)
+        const activeElements = document.querySelectorAll(`[data-section="${section}"]`);
+        activeElements.forEach(el => el.classList.add('active'));
 
         // Hide all sections
         document.querySelectorAll('.content-section').forEach(sec => {
@@ -262,7 +258,13 @@ class AdminApp {
         });
 
         // Show target section
-        document.getElementById(`${section}-section`).classList.remove('d-none');
+        const targetSection = document.getElementById(`${section}-section`);
+        if (targetSection) {
+            targetSection.classList.remove('d-none');
+            console.log(`✅ Showing section: ${section}-section`);
+        } else {
+            console.error(`❌ Section not found: ${section}-section`);
+        }
         
         this.currentSection = section;
 
