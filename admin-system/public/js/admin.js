@@ -3599,6 +3599,12 @@ class AdminApp {
                                 ` : ''}
                             </div>
                             
+                            <div class="mb-3">
+                                <label class="form-label">Factuur beschrijving</label>
+                                <input type="text" class="form-control" name="description" 
+                                       placeholder="Beschrijving van de factuur" value="Detailing service">
+                            </div>
+                            
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h6>Factuurregels</h6>
@@ -3608,9 +3614,13 @@ class AdminApp {
                                 </div>
                                 <div id="invoice-items-container">
                                     <div class="invoice-item row align-items-center mb-2">
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
+                                            <input type="text" class="form-control" name="items[0][service_name]" 
+                                                   placeholder="Service naam *" required>
+                                        </div>
+                                        <div class="col-md-3">
                                             <input type="text" class="form-control" name="items[0][description]" 
-                                                   placeholder="Omschrijving *" required>
+                                                   placeholder="Omschrijving">
                                         </div>
                                         <div class="col-md-2">
                                             <input type="number" class="form-control item-quantity" name="items[0][quantity]" 
@@ -3699,9 +3709,13 @@ class AdminApp {
         const newItem = document.createElement('div');
         newItem.className = 'invoice-item row align-items-center mb-2';
         newItem.innerHTML = `
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <input type="text" class="form-control" name="items[${itemCount}][service_name]" 
+                       placeholder="Service naam *" required>
+            </div>
+            <div class="col-md-3">
                 <input type="text" class="form-control" name="items[${itemCount}][description]" 
-                       placeholder="Omschrijving *" required>
+                       placeholder="Omschrijving">
             </div>
             <div class="col-md-2">
                 <input type="number" class="form-control item-quantity" name="items[${itemCount}][quantity]" 
@@ -3824,13 +3838,15 @@ class AdminApp {
         const itemElements = document.querySelectorAll('.invoice-item');
         
         itemElements.forEach((item, index) => {
+            const serviceName = item.querySelector(`[name="items[${index}][service_name]"]`)?.value;
             const description = item.querySelector(`[name="items[${index}][description]"]`)?.value;
             const quantity = parseFloat(item.querySelector(`[name="items[${index}][quantity]"]`)?.value) || 0;
             const unitPrice = parseFloat(item.querySelector(`[name="items[${index}][unit_price]"]`)?.value) || 0;
             
-            if (description && quantity > 0 && unitPrice > 0) {
+            if (serviceName && quantity > 0 && unitPrice > 0) {
                 items.push({
-                    description: description.trim(),
+                    service_name: serviceName.trim(),
+                    description: description?.trim() || null,
                     quantity: quantity,
                     unit_price: unitPrice,
                     total_price: quantity * unitPrice
@@ -3845,6 +3861,7 @@ class AdminApp {
         
         const invoiceData = {
             customer_id: formData.get('customer_id'),
+            description: formData.get('description') || 'Factuur',
             due_date: formData.get('due_date') || null,
             tax_percentage: this.systemSettings.vat_enabled ? 
                 (parseFloat(formData.get('tax_percentage')) || this.systemSettings.vat_percentage) : 0,
