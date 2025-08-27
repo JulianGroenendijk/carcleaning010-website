@@ -2967,14 +2967,32 @@ class AdminApp {
         checkBtn.disabled = true;
         
         try {
-            const response = await fetch(this.baseURL + '/api/deploy/check-updates');
-            const data = await response.json();
+            // Try new endpoint first, fallback to status if not available
+            let response = await fetch(this.baseURL + '/api/deploy/check-updates');
+            let data;
+            let isNewEndpoint = true;
+            
+            if (!response.ok && response.status === 404) {
+                // Fallback to old endpoint if new one doesn't exist
+                console.log('📄 Using fallback status endpoint');
+                response = await fetch(this.baseURL + '/api/deploy/status');
+                isNewEndpoint = false;
+            }
+            
+            data = await response.json();
             
             if (response.ok) {
                 const versionBadge = document.getElementById('current-version');
-                versionBadge.textContent = `v${data.local.version} (${data.local.commit})`;
                 
-                if (data.hasUpdates) {
+                if (isNewEndpoint && data.local) {
+                    // New endpoint with GitHub comparison
+                    versionBadge.textContent = `v${data.local.version} (${data.local.commit})`;
+                } else {
+                    // Old endpoint - just show version
+                    versionBadge.textContent = `v${data.version}`;
+                }
+                
+                if (isNewEndpoint && data.hasUpdates) {
                     // Updates available
                     versionBadge.className = 'badge bg-warning text-dark me-2';
                     
@@ -2994,16 +3012,18 @@ class AdminApp {
                     }, 5000);
                     
                 } else {
-                    // Up to date
+                    // Up to date or using old endpoint
                     versionBadge.className = 'badge bg-success me-2';
                     
                     // Reset deploy button to normal state
                     deployBtn.innerHTML = '<i class="bi bi-arrow-clockwise text-white me-1"></i> Deploy';
                     deployBtn.className = 'btn btn-success';
-                    deployBtn.title = 'Systeem is up-to-date';
+                    deployBtn.title = isNewEndpoint ? 'Systeem is up-to-date' : 'Deploy beschikbaar';
                     
-                    // Show current version and up-to-date status
-                    checkBtn.innerHTML = `<i class="bi bi-check-circle text-white me-1"></i> v${data.local.version} - Actueel`;
+                    // Show current version and status
+                    const version = isNewEndpoint ? data.local.version : data.version;
+                    const statusText = isNewEndpoint ? '- Actueel' : '- Geladen';
+                    checkBtn.innerHTML = `<i class="bi bi-check-circle text-white me-1"></i> v${version} ${statusText}`;
                     checkBtn.className = 'btn btn-sm btn-success';
                     
                     setTimeout(() => {
