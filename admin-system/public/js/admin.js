@@ -4198,6 +4198,13 @@ class AdminApp {
         return date.toLocaleDateString('nl-NL');
     }
 
+    formatTime(timeString) {
+        if (!timeString) return '';
+        // Handle both HH:MM and HH:MM:SS formats
+        const parts = timeString.split(':');
+        return `${parts[0]}:${parts[1]}`;
+    }
+
     getActivityColor(type) {
         const colors = {
             'customer': 'primary',
