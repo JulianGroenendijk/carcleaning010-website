@@ -3018,13 +3018,20 @@ class AdminApp {
             // Start deployment steps animation
             this.animateDeploymentProgress();
             
+            // Create abort controller for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+            
             const response = await fetch(this.baseURL + '/api/deploy/webhook', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({}),
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             const data = await response.json();
             
@@ -3053,7 +3060,12 @@ class AdminApp {
         } catch (error) {
             console.error('Deployment error:', error);
             this.failDeploymentProgress();
-            this.showToast('❌ Deployment fout - controleer de verbinding', 'danger');
+            
+            if (error.name === 'AbortError') {
+                this.showToast('❌ Deployment timeout - proces duurt te lang', 'warning');
+            } else {
+                this.showToast('❌ Deployment fout - controleer de verbinding', 'danger');
+            }
         }
         
         // Re-enable button
