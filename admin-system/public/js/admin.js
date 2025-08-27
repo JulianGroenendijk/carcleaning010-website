@@ -1695,17 +1695,43 @@ class AdminApp {
 
     renderAppointmentBlock(appointment) {
         const statusClass = this.getAppointmentStatusClass(appointment.status);
+        const customColor = appointment.color || '';
+        const duration = this.calculateAppointmentDuration(appointment.start_time, appointment.end_time);
+        
         return `
             <div class="appointment-block ${statusClass}" 
                  draggable="true" 
                  data-appointment-id="${appointment.id}"
+                 data-duration="${duration}"
+                 style="${customColor ? `background-color: ${customColor} !important;` : ''}"
                  ondragstart="adminApp.handleAppointmentDragStart(event)"
-                 title="${appointment.customer_name} - ${appointment.start_time}">
-                <div class="appointment-title">${appointment.customer_name}</div>
-                <div class="appointment-time">${this.formatTime(appointment.start_time)}</div>
-                <div class="appointment-status">${this.formatStatus(appointment.status)}</div>
+                 onclick="adminApp.showAppointmentDetails('${appointment.id}')"
+                 title="${appointment.customer_name} - ${appointment.start_time} tot ${appointment.end_time}">
+                
+                <div class="appointment-content">
+                    <div class="appointment-title">${appointment.customer_name}</div>
+                    <div class="appointment-time">${this.formatTime(appointment.start_time)} - ${this.formatTime(appointment.end_time)}</div>
+                    <div class="appointment-status">${this.formatStatus(appointment.status)}</div>
+                </div>
+                
+                <!-- Color picker button -->
+                <div class="appointment-color-picker" onclick="event.stopPropagation(); adminApp.showColorPicker('${appointment.id}', event)">
+                    <i class="bi bi-palette"></i>
+                </div>
+                
+                <!-- Resize handles -->
+                <div class="resize-handle resize-top" 
+                     onmousedown="adminApp.startResize(event, '${appointment.id}', 'top')"></div>
+                <div class="resize-handle resize-bottom" 
+                     onmousedown="adminApp.startResize(event, '${appointment.id}', 'bottom')"></div>
             </div>
         `;
+    }
+
+    calculateAppointmentDuration(startTime, endTime) {
+        const [startHours, startMins] = startTime.split(':').map(Number);
+        const [endHours, endMins] = endTime.split(':').map(Number);
+        return (endHours * 60 + endMins) - (startHours * 60 + startMins);
     }
 
     formatStatus(status) {
@@ -1873,6 +1899,375 @@ class AdminApp {
         });
     }
 
+    // Appointment details modal
+    async showAppointmentDetails(appointmentId) {
+        console.log('👁️ Showing appointment details:', appointmentId);
+        
+        try {
+            const appointment = await this.apiCall('GET', `/api/appointments/${appointmentId}`);
+            
+            const modalHTML = `
+                <div class="modal fade" id="appointmentDetailsModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-calendar-event"></i> Afspraak Details
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-person-circle"></i> Klant Informatie</h6>
+                                        <p><strong>Naam:</strong> ${appointment.customer_name || 'Niet beschikbaar'}</p>
+                                        <p><strong>Email:</strong> ${appointment.customer_email || 'Niet beschikbaar'}</p>
+                                        <p><strong>Telefoon:</strong> ${appointment.customer_phone || 'Niet beschikbaar'}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-calendar3"></i> Afspraak Informatie</h6>
+                                        <p><strong>Datum:</strong> ${new Date(appointment.appointment_date).toLocaleDateString('nl-NL')}</p>
+                                        <p><strong>Tijd:</strong> ${this.formatTime(appointment.start_time)} - ${this.formatTime(appointment.end_time)}</p>
+                                        <p><strong>Status:</strong> <span class="badge ${this.getAppointmentStatusClass(appointment.status)}">${this.formatStatus(appointment.status)}</span></p>
+                                        <p><strong>Locatie:</strong> ${appointment.location || 'Niet opgegeven'}</p>
+                                    </div>
+                                </div>
+                                ${appointment.notes ? `
+                                    <div class="mt-3">
+                                        <h6><i class="bi bi-sticky"></i> Notities</h6>
+                                        <p class="text-muted">${appointment.notes}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.editAppointment('${appointmentId}')">
+                                    <i class="bi bi-pencil"></i> Bewerken
+                                </button>
+                                <button type="button" class="btn btn-danger" onclick="adminApp.deleteAppointment('${appointmentId}')">
+                                    <i class="bi bi-trash"></i> Verwijderen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal and add new one
+            const existingModal = document.getElementById('appointmentDetailsModal');
+            if (existingModal) existingModal.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error loading appointment details:', error);
+            this.showNotification('Fout bij laden afspraak details: ' + error.message, 'error');
+        }
+    }
+
+    // Color picker functionality
+    showColorPicker(appointmentId, event) {
+        const colorPickerHTML = `
+            <div class="color-picker-popup" id="colorPicker" style="position: absolute; z-index: 1000;">
+                <div class="color-picker-content">
+                    <div class="color-palette">
+                        <div class="color-option" style="background-color: #0d6efd" onclick="adminApp.setAppointmentColor('${appointmentId}', '#0d6efd')"></div>
+                        <div class="color-option" style="background-color: #198754" onclick="adminApp.setAppointmentColor('${appointmentId}', '#198754')"></div>
+                        <div class="color-option" style="background-color: #fd7e14" onclick="adminApp.setAppointmentColor('${appointmentId}', '#fd7e14')"></div>
+                        <div class="color-option" style="background-color: #dc3545" onclick="adminApp.setAppointmentColor('${appointmentId}', '#dc3545')"></div>
+                        <div class="color-option" style="background-color: #6f42c1" onclick="adminApp.setAppointmentColor('${appointmentId}', '#6f42c1')"></div>
+                        <div class="color-option" style="background-color: #d63384" onclick="adminApp.setAppointmentColor('${appointmentId}', '#d63384')"></div>
+                        <div class="color-option" style="background-color: #20c997" onclick="adminApp.setAppointmentColor('${appointmentId}', '#20c997')"></div>
+                        <div class="color-option" style="background-color: #ffc107" onclick="adminApp.setAppointmentColor('${appointmentId}', '#ffc107')"></div>
+                    </div>
+                    <input type="color" class="form-control mt-2" onchange="adminApp.setAppointmentColor('${appointmentId}', this.value)">
+                    <button class="btn btn-sm btn-outline-secondary mt-2 w-100" onclick="adminApp.resetAppointmentColor('${appointmentId}')">Reset</button>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing color picker
+        const existingPicker = document.getElementById('colorPicker');
+        if (existingPicker) existingPicker.remove();
+        
+        // Position and show color picker
+        document.body.insertAdjacentHTML('beforeend', colorPickerHTML);
+        const picker = document.getElementById('colorPicker');
+        picker.style.left = event.clientX + 'px';
+        picker.style.top = event.clientY + 'px';
+        
+        // Close on click outside
+        setTimeout(() => {
+            document.addEventListener('click', function closeColorPicker(e) {
+                if (!picker.contains(e.target)) {
+                    picker.remove();
+                    document.removeEventListener('click', closeColorPicker);
+                }
+            });
+        }, 100);
+    }
+
+    async setAppointmentColor(appointmentId, color) {
+        try {
+            await this.apiCall('PUT', `/api/appointments/${appointmentId}`, {
+                color: color
+            });
+            
+            this.showNotification('Kleur succesvol bijgewerkt!', 'success');
+            this.refreshCalendarView();
+            
+            // Close color picker
+            const picker = document.getElementById('colorPicker');
+            if (picker) picker.remove();
+            
+        } catch (error) {
+            console.error('Error setting appointment color:', error);
+            this.showNotification('Fout bij bijwerken kleur: ' + error.message, 'error');
+        }
+    }
+
+    async resetAppointmentColor(appointmentId) {
+        await this.setAppointmentColor(appointmentId, null);
+    }
+
+    async editAppointment(appointmentId) {
+        // Close the details modal first
+        const detailsModal = bootstrap.Modal.getInstance(document.getElementById('appointmentDetailsModal'));
+        if (detailsModal) detailsModal.hide();
+        
+        try {
+            const appointment = await this.apiCall('GET', `/api/appointments/${appointmentId}`);
+            
+            // Create edit modal (similar to add modal but pre-filled)
+            const customersResponse = await fetch(this.baseURL + '/api/customers', {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            const customersData = await customersResponse.json();
+            const customers = customersData;
+            
+            const modalHTML = `
+                <div class="modal fade" id="editAppointmentModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-pencil-square text-primary"></i> Afspraak Bewerken
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="editAppointmentForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentCustomer" class="form-label">Klant *</label>
+                                                <select class="form-select" id="editAppointmentCustomer" required>
+                                                    ${customers.customers.map(customer => 
+                                                        `<option value="${customer.id}" ${customer.id === appointment.customer_id ? 'selected' : ''}>${customer.first_name} ${customer.last_name} - ${customer.email}</option>`
+                                                    ).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentDate" class="form-label">Datum *</label>
+                                                <input type="date" class="form-control" id="editAppointmentDate" required 
+                                                       value="${appointment.appointment_date}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentStartTime" class="form-label">Start Tijd *</label>
+                                                <input type="time" class="form-control" id="editAppointmentStartTime" required 
+                                                       value="${appointment.start_time}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentEndTime" class="form-label">Eind Tijd *</label>
+                                                <input type="time" class="form-control" id="editAppointmentEndTime" required 
+                                                       value="${appointment.end_time}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentStatus" class="form-label">Status</label>
+                                                <select class="form-select" id="editAppointmentStatus">
+                                                    <option value="scheduled" ${appointment.status === 'scheduled' ? 'selected' : ''}>Gepland</option>
+                                                    <option value="in_progress" ${appointment.status === 'in_progress' ? 'selected' : ''}>In Behandeling</option>
+                                                    <option value="completed" ${appointment.status === 'completed' ? 'selected' : ''}>Voltooid</option>
+                                                    <option value="cancelled" ${appointment.status === 'cancelled' ? 'selected' : ''}>Geannuleerd</option>
+                                                    <option value="no_show" ${appointment.status === 'no_show' ? 'selected' : ''}>Niet Verschenen</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentLocation" class="form-label">Locatie</label>
+                                                <input type="text" class="form-control" id="editAppointmentLocation" 
+                                                       value="${appointment.location || ''}"
+                                                       placeholder="Bijv. Thuis bij klant, Bedrijfspand, etc.">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="editAppointmentNotes" class="form-label">Notities</label>
+                                        <textarea class="form-control" id="editAppointmentNotes" rows="3" 
+                                                  placeholder="Aanvullende informatie over de afspraak...">${appointment.notes || ''}</textarea>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x"></i> Annuleren
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.saveEditedAppointment('${appointmentId}')">
+                                    <i class="bi bi-check"></i> Opslaan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal and add new one
+            const existingModal = document.getElementById('editAppointmentModal');
+            if (existingModal) existingModal.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const modal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error loading appointment for editing:', error);
+            this.showNotification('Fout bij laden afspraak voor bewerken: ' + error.message, 'error');
+        }
+    }
+
+    async saveEditedAppointment(appointmentId) {
+        try {
+            const formData = {
+                customer_id: document.getElementById('editAppointmentCustomer').value,
+                appointment_date: document.getElementById('editAppointmentDate').value,
+                start_time: document.getElementById('editAppointmentStartTime').value,
+                end_time: document.getElementById('editAppointmentEndTime').value,
+                status: document.getElementById('editAppointmentStatus').value,
+                location: document.getElementById('editAppointmentLocation').value,
+                notes: document.getElementById('editAppointmentNotes').value
+            };
+            
+            await this.apiCall('PUT', `/api/appointments/${appointmentId}`, formData);
+            
+            this.showNotification('Afspraak succesvol bijgewerkt!', 'success');
+            
+            // Close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editAppointmentModal'));
+            if (modal) modal.hide();
+            
+            this.refreshCalendarView();
+            
+        } catch (error) {
+            console.error('Error updating appointment:', error);
+            this.showNotification('Fout bij bijwerken afspraak: ' + error.message, 'error');
+        }
+    }
+
+    // Resize functionality
+    startResize(event, appointmentId, direction) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        this.resizing = {
+            appointmentId: appointmentId,
+            direction: direction,
+            startY: event.clientY,
+            originalBlock: event.target.closest('.appointment-block')
+        };
+        
+        document.addEventListener('mousemove', this.handleResize.bind(this));
+        document.addEventListener('mouseup', this.stopResize.bind(this));
+        
+        console.log('🔧 Started resizing:', { appointmentId, direction });
+    }
+
+    handleResize(event) {
+        if (!this.resizing) return;
+        
+        const deltaY = event.clientY - this.resizing.startY;
+        const timeSlotHeight = 60; // Height of each 30-minute slot
+        const slotsChanged = Math.round(deltaY / timeSlotHeight);
+        
+        if (Math.abs(slotsChanged) > 0) {
+            this.resizing.originalBlock.style.opacity = '0.7';
+            this.resizing.originalBlock.style.transform = `scaleY(${1 + (slotsChanged * 0.1)})`;
+        }
+    }
+
+    async stopResize(event) {
+        if (!this.resizing) return;
+        
+        const deltaY = event.clientY - this.resizing.startY;
+        const timeSlotHeight = 60;
+        const slotsChanged = Math.round(deltaY / timeSlotHeight);
+        
+        if (Math.abs(slotsChanged) > 0) {
+            try {
+                const appointment = await this.apiCall('GET', `/api/appointments/${this.resizing.appointmentId}`);
+                const minutesChanged = slotsChanged * 30; // Each slot is 30 minutes
+                
+                let newStartTime = appointment.start_time;
+                let newEndTime = appointment.end_time;
+                
+                if (this.resizing.direction === 'top') {
+                    // Adjust start time
+                    const [hours, minutes] = appointment.start_time.split(':').map(Number);
+                    const totalMinutes = (hours * 60 + minutes) - minutesChanged;
+                    const newHours = Math.floor(totalMinutes / 60);
+                    const newMinutes = totalMinutes % 60;
+                    newStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                } else {
+                    // Adjust end time
+                    const [hours, minutes] = appointment.end_time.split(':').map(Number);
+                    const totalMinutes = (hours * 60 + minutes) + minutesChanged;
+                    const newHours = Math.floor(totalMinutes / 60);
+                    const newMinutes = totalMinutes % 60;
+                    newEndTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                }
+                
+                await this.apiCall('PUT', `/api/appointments/${this.resizing.appointmentId}`, {
+                    start_time: newStartTime,
+                    end_time: newEndTime
+                });
+                
+                this.showNotification('Afspraak duur succesvol bijgewerkt!', 'success');
+                this.refreshCalendarView();
+                
+            } catch (error) {
+                console.error('Error resizing appointment:', error);
+                this.showNotification('Fout bij aanpassen duur: ' + error.message, 'error');
+            }
+        }
+        
+        // Reset styles
+        if (this.resizing.originalBlock) {
+            this.resizing.originalBlock.style.opacity = '1';
+            this.resizing.originalBlock.style.transform = '';
+        }
+        
+        this.resizing = null;
+        document.removeEventListener('mousemove', this.handleResize.bind(this));
+        document.removeEventListener('mouseup', this.stopResize.bind(this));
+    }
+
     addCalendarCSS() {
         // Check if calendar CSS already exists
         if (document.getElementById('calendar-styles')) return;
@@ -1991,6 +2386,12 @@ class AdminApp {
             .appointment-block.bg-danger { background-color: #dc3545; }
             .appointment-block.bg-secondary { background-color: #6c757d; }
             
+            .appointment-content {
+                position: relative;
+                z-index: 2;
+                pointer-events: none;
+            }
+            
             .appointment-title {
                 font-weight: 600;
                 overflow: hidden;
@@ -2006,6 +2407,101 @@ class AdminApp {
             .appointment-status {
                 font-size: 0.65rem;
                 opacity: 0.8;
+            }
+            
+            /* Color picker button */
+            .appointment-color-picker {
+                position: absolute;
+                top: 2px;
+                right: 2px;
+                width: 16px;
+                height: 16px;
+                background-color: rgba(255,255,255,0.8);
+                border-radius: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 10px;
+                color: #333;
+                cursor: pointer;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                z-index: 3;
+                pointer-events: auto;
+            }
+            
+            .appointment-block:hover .appointment-color-picker {
+                opacity: 1;
+            }
+            
+            /* Resize handles */
+            .resize-handle {
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background-color: rgba(255,255,255,0.3);
+                cursor: ns-resize;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                z-index: 3;
+                pointer-events: auto;
+            }
+            
+            .resize-top {
+                top: 0;
+                border-radius: 6px 6px 0 0;
+            }
+            
+            .resize-bottom {
+                bottom: 0;
+                border-radius: 0 0 6px 6px;
+            }
+            
+            .appointment-block:hover .resize-handle {
+                opacity: 1;
+            }
+            
+            .resize-handle:hover {
+                background-color: rgba(255,255,255,0.6);
+                height: 6px;
+            }
+            
+            /* Color picker popup */
+            .color-picker-popup {
+                background: white;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                padding: 12px;
+                min-width: 200px;
+            }
+            
+            .color-picker-content {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .color-palette {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 6px;
+            }
+            
+            .color-option {
+                width: 30px;
+                height: 30px;
+                border-radius: 6px;
+                cursor: pointer;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: transform 0.2s ease;
+            }
+            
+            .color-option:hover {
+                transform: scale(1.1);
+                box-shadow: 0 3px 6px rgba(0,0,0,0.15);
             }
             
             /* Responsive adjustments */
