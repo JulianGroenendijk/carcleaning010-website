@@ -408,4 +408,41 @@ router.post('/migrate-database', async (req, res) => {
     }
 });
 
+// Emergency database query endpoint for debugging
+router.post('/debug-query', async (req, res) => {
+    try {
+        const { query: queryText } = req.body;
+        
+        console.log('🐛 Debug query:', queryText);
+        
+        const { Client } = require('pg');
+        
+        // Use production database credentials
+        const client = new Client({
+            host: 'localhost',
+            port: 5432,
+            database: 'carcleaning010_db',
+            user: 'carcleaning_admin',
+            password: 'Carcleaning010_VPS_2025!'
+        });
+        
+        await client.connect();
+        const result = await client.query(queryText);
+        await client.end();
+        
+        res.json({
+            success: true,
+            result: result.rows,
+            rowCount: result.rowCount
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug query error:', error);
+        res.status(500).json({ 
+            error: 'Debug query failed', 
+            details: error.message 
+        });
+    }
+});
+
 module.exports = router;
