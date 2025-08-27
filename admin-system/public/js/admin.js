@@ -1706,7 +1706,10 @@ class AdminApp {
                                                 <label for="appointmentStatus" class="form-label">Status</label>
                                                 <select class="form-select" id="appointmentStatus">
                                                     <option value="scheduled">Gepland</option>
-                                                    <option value="confirmed">Bevestigd</option>
+                                                    <option value="in_progress">In Behandeling</option>
+                                                    <option value="completed">Voltooid</option>
+                                                    <option value="cancelled">Geannuleerd</option>
+                                                    <option value="no_show">Niet Verschenen</option>
                                                 </select>
                                             </div>
                                         </div>
