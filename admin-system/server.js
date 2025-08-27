@@ -71,6 +71,29 @@ const noCacheOptions = {
 };
 
 app.use('/admin/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
+
+// Custom middleware for HTML with cache-busting
+app.get('/admin', (req, res) => {
+    const fs = require('fs');
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    
+    fs.readFile(indexPath, 'utf8', (err, data) => {
+        if (err) {
+            res.status(500).send('Error loading page');
+            return;
+        }
+        
+        // Replace cache-buster with current timestamp
+        const cacheBustedHTML = data.replace(/admin\.js\?v=\d+/, `admin.js?v=${Date.now()}`);
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.send(cacheBustedHTML);
+    });
+});
+
 app.use('/admin', express.static(path.join(__dirname, 'public'), noCacheOptions));
 
 // Fallback for direct access (development)
@@ -104,6 +127,15 @@ app.use('/api/vehicles', verifyToken, require('./routes/vehicles'));
 app.use('/api/services', verifyToken, require('./routes/services'));
 app.use('/api/quotes', verifyToken, require('./routes/quotes'));
 app.use('/api/appointments', verifyToken, require('./routes/appointments'));
+// Enhanced logging for invoices endpoint
+app.use('/api/invoices', (req, res, next) => {
+    console.log(`📧 Invoice API: ${req.method} ${req.url}`);
+    console.log('📧 Headers:', req.headers);
+    if (req.body && Object.keys(req.body).length > 0) {
+        console.log('📧 Body:', JSON.stringify(req.body, null, 2));
+    }
+    next();
+});
 app.use('/api/invoices', verifyToken, require('./routes/invoices'));
 app.use('/api/certificates', verifyToken, require('./routes/certificates'));
 app.use('/api/leads', verifyToken, require('./routes/leads'));
