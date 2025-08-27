@@ -40,7 +40,7 @@ router.get('/financial-overview', async (req, res) => {
         const expensesQuery = `
             SELECT 
                 COALESCE(SUM(amount), 0) as total_expenses,
-                COALESCE(SUM(vat_amount), 0) as total_vat_paid,
+                COALESCE(SUM(btw_amount), 0) as total_vat_paid,
                 COUNT(*) as total_expense_records,
                 COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_expenses,
                 COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_expenses
@@ -142,7 +142,7 @@ router.get('/expenses-by-category', async (req, res) => {
                 COUNT(*) as count,
                 COALESCE(SUM(amount), 0) as total_amount,
                 COALESCE(AVG(amount), 0) as average_amount,
-                COALESCE(SUM(vat_amount), 0) as total_vat
+                COALESCE(SUM(btw_amount), 0) as total_vat
             FROM expenses 
             ${dateFilter}
             GROUP BY category
@@ -268,8 +268,8 @@ router.get('/vat-report', async (req, res) => {
         const vatPaidQuery = `
             SELECT 
                 EXTRACT(QUARTER FROM expense_date) as quarter,
-                COALESCE(SUM(vat_amount), 0) as vat_paid,
-                COALESCE(SUM(amount - COALESCE(vat_amount, 0)), 0) as net_expenses
+                COALESCE(SUM(btw_amount), 0) as vat_paid,
+                COALESCE(SUM(amount - COALESCE(btw_amount, 0)), 0) as net_expenses
             FROM expenses 
             WHERE EXTRACT(YEAR FROM expense_date) = $1 
                 AND status = 'approved'
@@ -375,7 +375,7 @@ router.get('/export/:type', async (req, res) => {
                     s.name as supplier_name,
                     s.vat_number as supplier_vat,
                     e.amount,
-                    e.vat_amount as tax_amount,
+                    e.btw_amount as tax_amount,
                     e.receipt_number,
                     e.status
                 FROM expenses e

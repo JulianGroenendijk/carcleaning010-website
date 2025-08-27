@@ -145,7 +145,7 @@ router.post('/', validateExpense, async (req, res) => {
         const query = `
             INSERT INTO expenses (
                 description, amount, category, supplier_id, expense_date,
-                receipt_number, vat_amount, status, notes, created_at, updated_at
+                receipt_number, btw_amount, status, notes, created_at, updated_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
             RETURNING *
@@ -200,7 +200,7 @@ router.put('/:id', validateExpense, async (req, res) => {
                 supplier_id = $4,
                 expense_date = $5,
                 receipt_number = $6,
-                vat_amount = $7,
+                btw_amount = $7,
                 status = $8,
                 notes = $9,
                 updated_at = NOW()
@@ -301,7 +301,7 @@ router.get('/meta/summary', async (req, res) => {
             SELECT 
                 COUNT(*) as total_expenses,
                 COALESCE(SUM(amount), 0) as total_amount,
-                COALESCE(SUM(vat_amount), 0) as total_vat,
+                COALESCE(SUM(btw_amount), 0) as total_vat,
                 COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count,
                 COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_count,
                 category,

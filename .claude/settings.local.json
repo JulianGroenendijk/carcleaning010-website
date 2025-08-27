@@ -21,7 +21,8 @@
       "Bash(psql:*)",
       "Read(/C:\\Program Files\\PostgreSQL\\17\\data/**)",
       "Bash(net start:*)",
-      "Bash(sc query:*)"
+      "Bash(sc query:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
