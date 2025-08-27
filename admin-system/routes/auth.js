@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { login, verifyCurrentToken, verifyToken } = require('../middleware/auth');
+const { login, verifyCurrentToken, verifyToken, changePassword } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -19,5 +19,8 @@ router.post('/login', loginLimiter, login);
 
 // GET /api/auth/verify - Token verificatie (vereist token)
 router.get('/verify', verifyToken, verifyCurrentToken);
+
+// POST /api/auth/change-password - Wijzig wachtwoord (vereist token)
+router.post('/change-password', verifyToken, changePassword);
 
 module.exports = router;

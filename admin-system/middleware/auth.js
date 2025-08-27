@@ -143,9 +143,76 @@ const verifyCurrentToken = async (req, res) => {
     }
 };
 
+// Wijzig wachtwoord functie
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+        const userId = req.user.id;
+
+        // Validatie
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ 
+                error: 'Alle velden zijn verplicht.' 
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ 
+                error: 'Nieuwe wachtwoorden komen niet overeen.' 
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ 
+                error: 'Nieuw wachtwoord moet minimaal 8 karakters bevatten.' 
+            });
+        }
+
+        // Haal gebruiker op met huidige wachtwoord hash
+        const userResult = await query(
+            'SELECT password_hash FROM admin_users WHERE id = $1',
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ 
+                error: 'Gebruiker niet gevonden.' 
+            });
+        }
+
+        const user = userResult.rows[0];
+
+        // Verificeer huidige wachtwoord
+        const validCurrentPassword = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!validCurrentPassword) {
+            return res.status(401).json({ 
+                error: 'Huidige wachtwoord is onjuist.' 
+            });
+        }
+
+        // Hash nieuw wachtwoord
+        const newPasswordHash = await hashPassword(newPassword);
+
+        // Update wachtwoord in database
+        await query(
+            'UPDATE admin_users SET password_hash = $1 WHERE id = $2',
+            [newPasswordHash, userId]
+        );
+
+        res.json({
+            message: 'Wachtwoord succesvol gewijzigd.'
+        });
+
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({ error: 'Server fout bij wijzigen wachtwoord.' });
+    }
+};
+
 module.exports = {
     verifyToken,
     login,
     hashPassword,
-    verifyCurrentToken
+    verifyCurrentToken,
+    changePassword
 };

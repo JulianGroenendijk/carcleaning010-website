@@ -96,8 +96,12 @@ app.use('/api/settings', verifyToken, require('./routes/settings'));
 // Website lead endpoint (zonder auth voor website formulier)
 app.use('/api/website-leads', require('./routes/websiteLeads'));
 
-// Catch-all voor frontend routing (SPA)
+// Catch-all voor frontend routing (SPA) - exclude static files
 app.get('*', (req, res) => {
+    // Don't serve index.html for static files (js, css, images, etc.)
+    if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+        return res.status(404).send('File not found');
+    }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

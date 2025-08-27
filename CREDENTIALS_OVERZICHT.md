@@ -20,9 +20,12 @@
 ## Admin System Credentials
 - **JWT Secret**: local_development_jwt_secret_very_secure_32_chars_minimum
 - **Bcrypt Rounds**: 12
-- **Admin Login** (standaard):
-  - Username: admin
-  - Password: [wordt gegenereerd bij eerste setup]
+- **Admin Login** (lokaal - mock database):
+  - Email: admin@carcleaning010.nl
+  - Password: admin123
+- **Admin Login** (echte database):
+  - Email: admin@carcleaning010.nl
+  - Password: N5jWp6gb
 
 ## Server Credentials  
 - **VPS Provider**: TransIP
@@ -46,5 +49,5 @@
 - **Password**: [jouw plesk password]
 
 ---
-**Laatste update**: 26 augustus 2025
-**Status**: Lokale database problemen - ontwikkeling verplaatst naar VPS
+**Laatste update**: 27 augustus 2025
+**Status**: Admin login werkt lokaal met mock database. Voor echte database: PostgreSQL service opstarten nodig.

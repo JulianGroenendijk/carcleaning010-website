@@ -152,6 +152,16 @@ class AdminApp {
                 this.navigateToSection(section);
             });
         });
+        
+        // Settings link (in dropdown, has different class)
+        const settingsLink = document.querySelector('[data-section="settings"]');
+        if (settingsLink) {
+            settingsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('🔧 Settings clicked via dropdown');
+                this.navigateToSection('settings');
+            });
+        }
 
         // Quick actions
         document.getElementById('refresh-dashboard')?.addEventListener('click', () => {
@@ -261,37 +271,47 @@ class AdminApp {
     }
 
     async loadSectionContent(section) {
-        switch (section) {
-            case 'dashboard':
-                await this.loadDashboard();
-                break;
-            case 'customers':
-                await this.loadCustomers();
-                break;
-            case 'quotes':
-                await this.loadQuotes();
-                break;
-            case 'appointments':
-                await this.loadAppointments();
-                break;
-            case 'invoices':
-                await this.loadInvoices();
-                break;
-            case 'leads':
-                await this.loadLeads();
-                break;
-            case 'expenses':
-                await this.loadExpenses();
-                break;
-            case 'suppliers':
-                await this.loadSuppliers();
-                break;
-            case 'reports':
-                await this.loadReports();
-                break;
-            case 'settings':
-                await this.loadSettings();
-                break;
+        try {
+            console.log('📄 Loading section content for:', section);
+            switch (section) {
+                case 'dashboard':
+                    await this.loadDashboard();
+                    break;
+                case 'customers':
+                    await this.loadCustomers();
+                    break;
+                case 'quotes':
+                    await this.loadQuotes();
+                    break;
+                case 'appointments':
+                    await this.loadAppointments();
+                    break;
+                case 'invoices':
+                    await this.loadInvoices();
+                    break;
+                case 'leads':
+                    await this.loadLeads();
+                    break;
+                case 'expenses':
+                    await this.loadExpenses();
+                    break;
+                case 'suppliers':
+                    await this.loadSuppliers();
+                    break;
+                case 'reports':
+                    await this.loadReports();
+                    break;
+                case 'settings':
+                    console.log('🔧 About to load settings...');
+                    await this.loadSettings();
+                    console.log('✅ Settings loaded successfully');
+                    break;
+                default:
+                    console.log('⚠️ Unknown section:', section);
+            }
+        } catch (error) {
+            console.error('❌ Error loading section content:', section, error);
+            this.showToast(`❌ Fout bij laden van ${section}`, 'danger');
         }
     }
 
@@ -2479,11 +2499,14 @@ class AdminApp {
 
     // System Settings
     async loadSettings() {
+        console.log('🔧 Loading settings...');
         const section = document.getElementById('settings-section');
         
         try {
             // Load current settings
+            console.log('📡 Loading system settings...');
             const settings = await this.loadSystemSettings();
+            console.log('✅ Settings loaded:', settings);
             
             section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -2583,6 +2606,44 @@ class AdminApp {
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-shield-lock text-danger"></i> Wachtwoord Wijzigen
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>Veiligheid:</strong> Gebruik een sterk wachtwoord van minimaal 8 karakters.
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Huidige Wachtwoord</label>
+                                    <input type="password" class="form-control" id="current-password" 
+                                           placeholder="Voer je huidige wachtwoord in">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Nieuw Wachtwoord</label>
+                                    <input type="password" class="form-control" id="new-password" 
+                                           placeholder="Voer je nieuwe wachtwoord in (minimaal 8 karakters)">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Bevestig Nieuw Wachtwoord</label>
+                                    <input type="password" class="form-control" id="confirm-password" 
+                                           placeholder="Bevestig je nieuwe wachtwoord">
+                                </div>
+                                
+                                <div class="d-flex justify-content-end">
+                                    <button type="button" class="btn btn-danger" id="change-password-btn">
+                                        <i class="bi bi-shield-lock"></i> Wachtwoord Wijzigen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2615,12 +2676,14 @@ class AdminApp {
 
     async loadSystemSettings() {
         try {
+            console.log('🔄 Making API call to /api/settings...');
             const response = await fetch(this.baseURL + '/api/settings', {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
             });
             
+            console.log('📡 API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -2660,6 +2723,10 @@ class AdminApp {
         // Save company info button
         const saveCompanyBtn = document.getElementById('save-company-info-btn');
         saveCompanyBtn?.addEventListener('click', () => this.saveCompanyInfo());
+        
+        // Change password button
+        const changePasswordBtn = document.getElementById('change-password-btn');
+        changePasswordBtn?.addEventListener('click', () => this.changePassword());
     }
     
     async saveSettings() {
@@ -2741,6 +2808,66 @@ class AdminApp {
             console.error('Error saving company info:', error);
             this.hidePDFLoadingToast(loadingToast);
             this.showToast('❌ Fout bij opslaan bedrijfsinformatie', 'danger');
+        }
+    }
+    
+    async changePassword() {
+        console.log('🔐 Change password');
+        
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        // Client-side validation
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            this.showToast('❌ Alle velden zijn verplicht', 'danger');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            this.showToast('❌ Nieuwe wachtwoorden komen niet overeen', 'danger');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            this.showToast('❌ Nieuw wachtwoord moet minimaal 8 karakters bevatten', 'danger');
+            return;
+        }
+        
+        try {
+            // Show loading
+            const loadingToast = this.showPDFLoadingToast('Wachtwoord wijzigen...');
+            
+            const response = await fetch(this.baseURL + '/api/auth/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword,
+                    confirmPassword
+                })
+            });
+            
+            const data = await response.json();
+            this.hidePDFLoadingToast(loadingToast);
+            
+            if (response.ok) {
+                // Clear form
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-password').value = '';
+                
+                this.showToast('✅ Wachtwoord succesvol gewijzigd', 'success');
+            } else {
+                this.showToast(`❌ ${data.error || 'Fout bij wijzigen wachtwoord'}`, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Error changing password:', error);
+            this.showToast('❌ Fout bij wijzigen wachtwoord', 'danger');
         }
     }
 
