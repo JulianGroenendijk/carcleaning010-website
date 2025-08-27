@@ -58,19 +58,19 @@ router.get('/', async (req, res) => {
         // Datum filters
         if (date_from) {
             paramCount++;
-            whereClause += ` AND DATE(a.scheduled_date) >= $${paramCount}`;
+            whereClause += ` AND DATE(a.appointment_date) >= $${paramCount}`;
             params.push(date_from);
         }
 
         if (date_to) {
             paramCount++;
-            whereClause += ` AND DATE(a.scheduled_date) <= $${paramCount}`;
+            whereClause += ` AND DATE(a.appointment_date) <= $${paramCount}`;
             params.push(date_to);
         }
 
         // Sorteerbare kolommen
-        const allowedSortColumns = ['scheduled_date', 'created_at', 'service_type', 'status', 'estimated_duration'];
-        const sortColumn = allowedSortColumns.includes(sort_by) ? sort_by : 'scheduled_date';
+        const allowedSortColumns = ['appointment_date', 'created_at', 'status'];
+        const sortColumn = allowedSortColumns.includes(sort_by) ? sort_by : 'appointment_date';
         const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
         const appointmentsQuery = `
@@ -80,9 +80,11 @@ router.get('/', async (req, res) => {
                 c.email as customer_email,
                 c.phone as customer_phone,
                 c.address as customer_address,
+                v.make || ' ' || v.model as vehicle_info,
                 COUNT(*) OVER() as total_count
             FROM appointments a
             JOIN customers c ON a.customer_id = c.id
+            LEFT JOIN vehicles v ON a.vehicle_id = v.id
             ${whereClause}
             ORDER BY a.${sortColumn} ${sortDirection}
             LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}

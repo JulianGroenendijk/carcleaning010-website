@@ -1462,8 +1462,8 @@ class AdminApp {
         return appointments.map(appointment => `
             <tr>
                 <td>
-                    <div class="fw-bold">${this.formatDate(appointment.scheduled_date)}</div>
-                    <small class="text-muted">${this.formatTime(appointment.scheduled_time)}</small>
+                    <div class="fw-bold">${this.formatDate(appointment.appointment_date)}</div>
+                    <small class="text-muted">${this.formatTime(appointment.start_time)}</small>
                 </td>
                 <td>
                     <div class="fw-bold">${appointment.customer_name || 'Onbekend'}</div>
@@ -1471,7 +1471,7 @@ class AdminApp {
                     ${appointment.customer_phone ? `<small class="text-muted d-block">${appointment.customer_phone}</small>` : ''}
                 </td>
                 <td>
-                    <span class="badge bg-info">${appointment.service_type || 'Niet opgegeven'}</span>
+                    <span class="badge bg-info">Afspraak</span>
                 </td>
                 <td>
                     ${appointment.vehicle_info ? 
@@ -1485,13 +1485,13 @@ class AdminApp {
                     </span>
                 </td>
                 <td>
-                    ${appointment.duration_minutes ? `${appointment.duration_minutes} min` : '-'}
-                </td>
-                <td>
-                    ${appointment.estimated_price ? 
-                        `€${parseFloat(appointment.estimated_price).toFixed(2)}` : 
+                    ${appointment.start_time && appointment.end_time ? 
+                        `${appointment.start_time} - ${appointment.end_time}` : 
                         '-'
                     }
+                </td>
+                <td>
+                    -
                 </td>
                 <td>
                     <div class="btn-group" role="group">
