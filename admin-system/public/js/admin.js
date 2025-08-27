@@ -5185,7 +5185,7 @@ class AdminApp {
     async exportCustomers() {
         try {
             console.log('📤 Exporting all customers to CSV...');
-            const response = await fetch('/admin/api/customers?format=csv&limit=1000', {
+            const response = await fetch('/admin/api/customers?format=csv&limit=100', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                 }
