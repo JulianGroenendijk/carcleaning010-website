@@ -317,4 +317,78 @@ router.get('/check-updates', async (req, res) => {
     }
 });
 
+// Database migration endpoint for production
+router.post('/migrate-database', async (req, res) => {
+    try {
+        const { adminSecret } = req.body;
+        
+        // Simple secret check
+        if (adminSecret !== process.env.ADMIN_SECRET) {
+            return res.status(401).json({ error: 'Unauthorized - invalid admin secret' });
+        }
+        
+        console.log('🔧 Starting database migration...');
+        
+        const { Client } = require('pg');
+        
+        // Use production database credentials
+        const client = new Client({
+            host: 'localhost',
+            port: 5432,
+            database: 'carcleaning010_db',
+            user: 'carcleaning_admin',
+            password: 'Carcleaning010_VPS_2025!'
+        });
+        
+        await client.connect();
+        console.log('✅ Connected to production database');
+        
+        // Execute migrations
+        const migrations = [
+            'ALTER TABLE invoices ADD COLUMN IF NOT EXISTS description TEXT',
+            'ALTER TABLE invoices ADD COLUMN IF NOT EXISTS discount_percentage DECIMAL(5,2) DEFAULT 0',
+            'ALTER TABLE invoices ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) DEFAULT 0',
+            'ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_percentage DECIMAL(5,2) DEFAULT 21',
+            'ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS service_name VARCHAR(200)'
+        ];
+        
+        const results = [];
+        for (const migration of migrations) {
+            try {
+                await client.query(migration);
+                const columnName = migration.includes('description') ? 'description' :
+                                 migration.includes('discount_percentage') ? 'discount_percentage' :
+                                 migration.includes('discount_amount') ? 'discount_amount' :
+                                 migration.includes('tax_percentage') ? 'tax_percentage' :
+                                 migration.includes('service_name') ? 'service_name' : 'unknown';
+                results.push(`✅ Added/updated column: ${columnName}`);
+                console.log(`✅ Migration success: ${columnName}`);
+            } catch (error) {
+                if (error.message.includes('already exists')) {
+                    results.push(`ℹ️ Column already exists (skipped)`);
+                } else {
+                    throw error;
+                }
+            }
+        }
+        
+        await client.end();
+        console.log('🎉 Database migration completed successfully');
+        
+        res.json({
+            success: true,
+            message: 'Database migration completed successfully',
+            results: results,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Database migration failed:', error);
+        res.status(500).json({ 
+            error: 'Database migration failed', 
+            details: error.message 
+        });
+    }
+});
+
 module.exports = router;
