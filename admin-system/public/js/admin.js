@@ -1636,14 +1636,14 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error viewing lead:', error);
-            this.showAlert('Fout bij laden van lead details', 'danger');
+            this.showToast('Fout bij laden van lead details', 'error');
         }
     }
 
     async updateLeadStatus(leadId, newStatus) {
         try {
             await this.apiCall('PUT', `/api/leads/${leadId}/status`, { status: newStatus });
-            this.showAlert('Lead status succesvol bijgewerkt', 'success');
+            this.showToast('Lead status succesvol bijgewerkt', 'success');
             
             // Close modal if open
             const modal = bootstrap.Modal.getInstance(document.getElementById('viewLeadModal'));
@@ -1654,7 +1654,7 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error updating lead status:', error);
-            this.showAlert('Fout bij bijwerken van lead status', 'danger');
+            this.showToast('Fout bij bijwerken van lead status', 'error');
         }
     }
 
@@ -1665,7 +1665,7 @@ class AdminApp {
         
         try {
             const customer = await this.apiCall('POST', `/api/leads/${leadId}/convert-to-customer`);
-            this.showAlert(`Lead succesvol omgezet naar klant: ${customer.first_name} ${customer.last_name}`, 'success');
+            this.showToast(`Lead succesvol omgezet naar klant: ${customer.first_name} ${customer.last_name}`, 'success');
             
             // Close modal if open
             const modal = bootstrap.Modal.getInstance(document.getElementById('viewLeadModal'));
@@ -1676,7 +1676,7 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error converting lead:', error);
-            this.showAlert('Fout bij omzetten van lead naar klant', 'danger');
+            this.showToast('Fout bij omzetten van lead naar klant', 'error');
         }
     }
 
@@ -1887,7 +1887,7 @@ class AdminApp {
 
         } catch (error) {
             console.error('Error generating quote from lead:', error);
-            this.showAlert('Fout bij laden van offerte gegevens', 'danger');
+            this.showToast('Fout bij laden van offerte gegevens', 'error');
         }
     }
 
@@ -3106,9 +3106,15 @@ class AdminApp {
         const deployText = document.getElementById('deploy-text');
         const progressDiv = document.getElementById('deployment-progress');
         
-        deployBtn.disabled = true;
-        deployText.textContent = 'Deploying...';
-        progressDiv.style.display = 'block';
+        if (deployBtn) {
+            deployBtn.disabled = true;
+        }
+        if (deployText) {
+            deployText.textContent = 'Deploying...';
+        }
+        if (progressDiv) {
+            progressDiv.style.display = 'block';
+        }
         
         this.resetDeploymentProgress();
         
@@ -3141,7 +3147,9 @@ class AdminApp {
                 }
                 
                 // Auto-hide progress after 5 seconds with countdown
-                this.startProgressHideCountdown(progressDiv, 5);
+                if (progressDiv) {
+                    this.startProgressHideCountdown(progressDiv, 5);
+                }
                 
             } else {
                 this.failDeploymentProgress();
@@ -3160,8 +3168,12 @@ class AdminApp {
         }
         
         // Re-enable button
-        deployBtn.disabled = false;
-        deployText.textContent = 'Deploy Latest Update';
+        if (deployBtn) {
+            deployBtn.disabled = false;
+        }
+        if (deployText) {
+            deployText.textContent = 'Deploy Latest Update';
+        }
     }
     
     resetDeploymentProgress() {
