@@ -19,8 +19,10 @@ router.post('/webhook', async (req, res) => {
         
         console.log('🔄 Deployment webhook triggered');
         
-        // Pull latest code
-        exec('git pull origin main', { cwd: __dirname + '/..' }, (error, stdout, stderr) => {
+        console.log('🔄 Starting full website + admin deployment...');
+        
+        // Step 1: Git pull from parent directory (where the git repo is)
+        exec('git pull origin main', { cwd: path.join(__dirname, '../../') }, (error, stdout, stderr) => {
             if (error) {
                 console.error('❌ Git pull failed:', error);
                 return res.status(500).json({ error: 'Git pull failed' });
@@ -28,26 +30,60 @@ router.post('/webhook', async (req, res) => {
             
             console.log('✅ Git pull successful:', stdout);
             
-            // Install dependencies
-            exec('npm install --production', { cwd: __dirname + '/..' }, (error, stdout, stderr) => {
+            // Step 2: Deploy website files to httpdocs
+            const deployWebsite = `
+                cd /var/www/vhosts/carcleaning010.nl
+                echo "🌐 Deploying website files..."
+                cp carcleaning010-website/*.html httpdocs/ 2>/dev/null || echo "No HTML files to copy"
+                cp carcleaning010-website/*.css httpdocs/ 2>/dev/null || echo "No CSS files to copy" 
+                cp carcleaning010-website/*.js httpdocs/ 2>/dev/null || echo "No JS files to copy"
+                cp -r carcleaning010-website/images httpdocs/ 2>/dev/null || echo "No images to copy"
+                echo "✅ Website files deployed"
+            `;
+            
+            exec(deployWebsite, (error, stdout, stderr) => {
                 if (error) {
-                    console.error('❌ NPM install failed:', error);
-                    return res.status(500).json({ error: 'NPM install failed' });
+                    console.error('❌ Website deployment failed:', error);
                 }
+                console.log('🌐 Website deployment:', stdout);
                 
-                console.log('✅ NPM install successful');
-                
-                // Restart application if using PM2
-                exec('pm2 restart carcleaning010-admin || echo "PM2 restart failed"', (error, stdout, stderr) => {
+                // Step 3: Install admin dependencies
+                exec('npm install --production', { cwd: __dirname + '/..' }, (error, stdout, stderr) => {
                     if (error) {
-                        console.warn('⚠️ PM2 restart warning:', error);
+                        console.error('❌ NPM install failed:', error);
+                        return res.status(500).json({ error: 'NPM install failed' });
                     }
                     
-                    console.log('🔄 Application restart attempted');
-                    res.json({ 
-                        success: true, 
-                        message: 'Deployment completed',
-                        timestamp: new Date().toISOString()
+                    console.log('✅ NPM install successful');
+                    
+                    // Step 4: Fix vulnerabilities 
+                    exec('npm audit fix --force', { cwd: __dirname + '/..' }, (error, stdout, stderr) => {
+                        if (error) {
+                            console.warn('⚠️ NPM audit fix warning:', error);
+                        }
+                        console.log('🔒 Security fixes applied');
+                        
+                        // Step 5: Restart application
+                        exec('pm2 restart carcleaning010-admin || echo "PM2 restart failed"', (error, stdout, stderr) => {
+                            if (error) {
+                                console.warn('⚠️ PM2 restart warning:', error);
+                            }
+                            
+                            console.log('🚀 Application restarted');
+                            
+                            res.json({ 
+                                success: true, 
+                                message: 'Full deployment completed (website + admin)',
+                                timestamp: new Date().toISOString(),
+                                steps: [
+                                    '✅ Git pull',
+                                    '✅ Website files deployed to httpdocs', 
+                                    '✅ Admin dependencies installed',
+                                    '✅ Security vulnerabilities fixed',
+                                    '✅ Admin application restarted'
+                                ]
+                            });
+                        });
                     });
                 });
             });

@@ -26,10 +26,12 @@
 4. **Git pull** via Plesk terminal of upload nieuwe bestanden
 5. **Restart Node.js app** via Plesk
 
-### Optie 2: Via Plesk Terminal (als beschikbaar)
+### Optie 2: Via VPS Terminal (SSH/Plesk)
 ```bash
-cd /var/www/vhosts/carcleaning010.nl/admin-system
+# BELANGRIJK: Git repository zit in de hoofddirectory!
+cd /var/www/vhosts/carcleaning010.nl/carcleaning010-website
 git pull origin main
+cd admin-system
 npm install --production
 pm2 restart carcleaning010-admin
 ```
