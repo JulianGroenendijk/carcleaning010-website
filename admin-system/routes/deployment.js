@@ -6,6 +6,29 @@ const fs = require('fs');
 const { query } = require('../database/connection');
 const bcrypt = require('bcrypt');
 
+// Generate dynamic version based on git commits
+function getDynamicVersion() {
+    return new Promise((resolve) => {
+        const baseVersion = '1.2';
+        
+        // Get commit count for patch version
+        exec('git rev-list --count HEAD', { cwd: path.join(__dirname, '../../') }, (error, stdout) => {
+            if (error) {
+                resolve(`${baseVersion}.0-dev`);
+                return;
+            }
+            
+            const commitCount = stdout.trim();
+            
+            // Get short hash for build info
+            exec('git rev-parse --short HEAD', { cwd: path.join(__dirname, '../../') }, (error, hashOutput) => {
+                const shortHash = error ? 'unknown' : hashOutput.trim();
+                resolve(`${baseVersion}.${commitCount}-${shortHash}`);
+            });
+        });
+    });
+}
+
 const router = express.Router();
 
 // Quick deployment trigger endpoint (returns immediately)
@@ -221,21 +244,31 @@ router.post('/update-password', async (req, res) => {
 });
 
 // Health check for deployment
-router.get('/status', (req, res) => {
-    // Read version from package.json (clear cache first)
-    const packageJsonPath = path.join(__dirname, '../package.json');
-    delete require.cache[require.resolve('../package.json')];
-    const packageJson = require('../package.json');
-    
-    res.json({
-        status: 'healthy',
-        version: packageJson.version,
-        deployment: {
-            timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV || 'development',
-            commit: process.env.GIT_COMMIT || 'unknown'
-        }
-    });
+router.get('/status', async (req, res) => {
+    try {
+        const dynamicVersion = await getDynamicVersion();
+        
+        res.json({
+            status: 'healthy',
+            version: dynamicVersion,
+            deployment: {
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV || 'development',
+                commit: process.env.GIT_COMMIT || 'unknown'
+            }
+        });
+    } catch (error) {
+        console.error('Error getting version:', error);
+        res.json({
+            status: 'healthy',
+            version: '1.2.0-error',
+            deployment: {
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV || 'development',
+                commit: process.env.GIT_COMMIT || 'unknown'
+            }
+        });
+    }
 });
 
 // Check for available updates from GitHub
@@ -244,45 +277,38 @@ router.get('/check-updates', async (req, res) => {
         console.log('🔍 Checking for updates from GitHub...');
         
         const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
         const path = require('path');
         
         // Get current local commit
-        exec('git rev-parse HEAD', { cwd: path.join(__dirname, '../../') }, (error, localCommit, stderr) => {
-            if (error) {
-                return res.status(500).json({ error: 'Failed to get local commit' });
-            }
-            
-            // Get remote commit
-            exec('git ls-remote origin main', { cwd: path.join(__dirname, '../../') }, (error, remoteOutput, stderr) => {
-                if (error) {
-                    return res.status(500).json({ error: 'Failed to get remote commit' });
-                }
-                
-                const remoteCommit = remoteOutput.split('\t')[0];
-                const localCommitShort = localCommit.trim().substring(0, 7);
-                const remoteCommitShort = remoteCommit.trim().substring(0, 7);
-                
-                const hasUpdates = localCommit.trim() !== remoteCommit.trim();
-                
-                // Read current version from package.json (clear cache first)
-                delete require.cache[require.resolve('../package.json')];
-                const packageJson = require('../package.json');
-                
-                res.json({
-                    hasUpdates,
-                    local: {
-                        commit: localCommitShort,
-                        version: packageJson.version
-                    },
-                    remote: {
-                        commit: remoteCommitShort,
-                        available: hasUpdates
-                    },
-                    message: hasUpdates 
-                        ? `🆕 Update beschikbaar (${remoteCommitShort})` 
-                        : '✅ Systeem is up-to-date'
-                });
-            });
+        const { stdout: localCommit } = await execAsync('git rev-parse HEAD', { cwd: path.join(__dirname, '../../') });
+        
+        // Get remote commit
+        const { stdout: remoteOutput } = await execAsync('git ls-remote origin main', { cwd: path.join(__dirname, '../../') });
+        
+        const remoteCommit = remoteOutput.split('\t')[0];
+        const localCommitShort = localCommit.trim().substring(0, 7);
+        const remoteCommitShort = remoteCommit.trim().substring(0, 7);
+        
+        const hasUpdates = localCommit.trim() !== remoteCommit.trim();
+        
+        // Get current dynamic version
+        const dynamicVersion = await getDynamicVersion();
+        
+        res.json({
+            hasUpdates,
+            local: {
+                commit: localCommitShort,
+                version: dynamicVersion
+            },
+            remote: {
+                commit: remoteCommitShort,
+                available: hasUpdates
+            },
+            message: hasUpdates 
+                ? `🆕 Update beschikbaar (${remoteCommitShort})` 
+                : '✅ Systeem is up-to-date'
         });
         
     } catch (error) {
