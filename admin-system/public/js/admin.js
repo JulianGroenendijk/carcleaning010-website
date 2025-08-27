@@ -2967,16 +2967,26 @@ class AdminApp {
         checkBtn.disabled = true;
         
         try {
-            // Try new endpoint first, fallback to status if not available
+            console.log('🔍 Checking for version endpoints...');
+            
+            // Try new endpoint first
             let response = await fetch(this.baseURL + '/api/deploy/check-updates');
             let data;
             let isNewEndpoint = true;
             
-            if (!response.ok && response.status === 404) {
-                // Fallback to old endpoint if new one doesn't exist
-                console.log('📄 Using fallback status endpoint');
+            // Check if we got HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!response.ok || (contentType && contentType.includes('text/html'))) {
+                // Fallback to old endpoint
+                console.log('📄 New endpoint not available, using status endpoint');
                 response = await fetch(this.baseURL + '/api/deploy/status');
                 isNewEndpoint = false;
+                
+                // Check this response too
+                const statusContentType = response.headers.get('content-type');
+                if (!response.ok || (statusContentType && statusContentType.includes('text/html'))) {
+                    throw new Error('Both endpoints returned HTML - API not available');
+                }
             }
             
             data = await response.json();
