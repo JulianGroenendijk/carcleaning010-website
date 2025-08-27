@@ -1188,8 +1188,32 @@ class AdminApp {
         `;
         
         try {
-            // Fetch invoices from API
-            const response = await fetch(this.baseURL + '/api/invoices', {
+            // Get filter values
+            const searchInput = document.getElementById('invoice-search');
+            const statusFilter = document.getElementById('invoice-status-filter');
+            const sortFilter = document.getElementById('invoice-sort-filter');
+            
+            let queryParams = new URLSearchParams();
+            
+            if (searchInput && searchInput.value.trim()) {
+                queryParams.append('search', searchInput.value.trim());
+            }
+            
+            if (statusFilter && statusFilter.value) {
+                queryParams.append('status', statusFilter.value);
+            }
+            
+            if (sortFilter && sortFilter.value) {
+                const [sort_by, sort_order] = sortFilter.value.split('-');
+                queryParams.append('sort_by', sort_by);
+                queryParams.append('sort_order', sort_order);
+            }
+            
+            // Fetch invoices from API with filters
+            const url = `${this.baseURL}/api/invoices${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            console.log('🔍 Loading invoices with filters:', url);
+            
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -3912,8 +3936,8 @@ class AdminApp {
     
     // Filter and action functions
     filterInvoices() {
-        console.log('🔍 Invoice filtering would happen here');
-        this.showToast('Filter functionaliteit komt binnenkort!', 'info');
+        console.log('🔍 Filtering invoices...');
+        this.loadInvoices();
     }
     
     async viewInvoice(id) {
@@ -4154,8 +4178,20 @@ class AdminApp {
     
     async deleteInvoice(id) {
         console.log('🗑️ Delete invoice:', id);
-        if (confirm(`Weet je zeker dat je factuur #${id} wilt verwijderen?`)) {
-            this.showToast(`Factuur ${id} verwijderen komt binnenkort!`, 'warning');
+        
+        // Get invoice details for confirmation
+        try {
+            const invoice = await this.apiCall('GET', `/api/invoices/${id}`);
+            const confirmMessage = `Weet je zeker dat je de volgende factuur wilt verwijderen?\n\nFactuur: ${invoice.invoice_number}\nKlant: ${invoice.customer_name}\nBedrag: €${parseFloat(invoice.total_amount).toFixed(2)}\nStatus: ${this.getInvoiceStatusText(invoice.status)}\n\n⚠️ Deze actie kan niet ongedaan worden gemaakt!`;
+            
+            if (confirm(confirmMessage)) {
+                const result = await this.apiCall('DELETE', `/api/invoices/${id}`);
+                this.showToast(`Factuur ${invoice.invoice_number} succesvol verwijderd`, 'success');
+                this.loadInvoices(); // Refresh the list
+            }
+        } catch (error) {
+            console.error('Error deleting invoice:', error);
+            this.showToast('Fout bij verwijderen factuur', 'error');
         }
     }
 
@@ -4455,9 +4491,120 @@ class AdminApp {
         }
     }
 
-    viewCustomer(id) {
-        // TODO: Implement view customer
-        this.showToast(`Klant ${id} bekijken - functionaliteit komt binnenkort`, 'info');
+    async viewCustomer(id) {
+        console.log('👁️ View customer:', id);
+        
+        try {
+            const customer = await this.apiCall('GET', `/api/customers/${id}`);
+            this.showCustomerModal(customer);
+        } catch (error) {
+            console.error('Error loading customer:', error);
+            this.showToast('Fout bij laden klant', 'error');
+        }
+    }
+    
+    showCustomerModal(customer) {
+        console.log('👥 Showing customer modal for:', customer.first_name, customer.last_name);
+        
+        const modal = `
+            <div class="modal fade" id="customerModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-person"></i> ${customer.first_name} ${customer.last_name}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">CONTACTGEGEVENS</h6>
+                                    <p class="mb-1"><strong>Email:</strong> ${customer.email}</p>
+                                    <p class="mb-1"><strong>Telefoon:</strong> ${customer.phone || 'Niet opgegeven'}</p>
+                                    <p class="mb-3"><strong>Aangemaakt:</strong> ${this.formatDate(customer.created_at)}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">ADRESGEGEVENS</h6>
+                                    <p class="mb-1"><strong>Adres:</strong> ${customer.address || 'Niet opgegeven'}</p>
+                                    <p class="mb-1"><strong>Postcode:</strong> ${customer.postal_code || 'Niet opgegeven'}</p>
+                                    <p class="mb-3"><strong>Stad:</strong> ${customer.city || 'Niet opgegeven'}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body text-center">
+                                            <h4>${customer.vehicle_count || 0}</h4>
+                                            <small>Voertuigen</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body text-center">
+                                            <h4>${customer.quote_count || 0}</h4>
+                                            <small>Offertes</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <h4>${customer.appointment_count || 0}</h4>
+                                            <small>Afspraken</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${customer.notes ? `
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">NOTITIES</h6>
+                                    <div class="alert alert-info">
+                                        ${customer.notes.split('\\n').map(line => `<p class="mb-1">${line}</p>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                            <button type="button" class="btn btn-primary" onclick="if(window.adminApp) window.adminApp.editCustomer('${customer.id}');">
+                                <i class="bi bi-pencil"></i> Bewerken
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="if(window.adminApp) window.adminApp.createInvoiceForCustomer('${customer.id}');">
+                                <i class="bi bi-receipt"></i> Nieuwe Factuur
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('customerModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body and show
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('customerModal'));
+        modalElement.show();
+    }
+    
+    createInvoiceForCustomer(customerId) {
+        console.log('📝 Creating invoice for customer:', customerId);
+        this.showToast('Nieuwe factuur voor klant - selecteer eerst services en details', 'info');
+        // Close customer modal
+        const modalElement = bootstrap.Modal.getInstance(document.getElementById('customerModal'));
+        if (modalElement) modalElement.hide();
+        
+        // Navigate to invoices section (could be enhanced to pre-fill customer)
+        this.navigateToSection('invoices');
     }
 
     editCustomer(id) {
