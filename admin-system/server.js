@@ -37,18 +37,20 @@ app.use(cors({
     credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - more permissive for admin functionality
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 100 requests per windowMs in production
+    max: process.env.NODE_ENV === 'production' ? 500 : 1000, // Increased from 100 to 500 for admin usage
     message: {
         error: 'Te veel aanvragen. Probeer het later opnieuw.'
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Skip deployment endpoints from rate limiting
+    // Skip deployment and admin endpoints from rate limiting
     skip: (req) => {
-        return req.path.startsWith('/api/deploy/');
+        return req.path.startsWith('/api/deploy/') || 
+               req.path.startsWith('/api/auth/') ||
+               (req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
     }
 });
 app.use(limiter);
