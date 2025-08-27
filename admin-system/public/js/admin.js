@@ -1700,12 +1700,10 @@ class AdminApp {
         
         return `
             <div class="appointment-block ${statusClass}" 
-                 draggable="true" 
                  data-appointment-id="${appointment.id}"
                  data-duration="${duration}"
-                 style="${customColor ? `background-color: ${customColor} !important;` : ''}"
-                 ondragstart="adminApp.handleAppointmentDragStart(event)"
-                 onclick="adminApp.showAppointmentDetails('${appointment.id}')"
+                 style="${customColor ? `background-color: ${customColor} !important; cursor: grab;` : 'cursor: grab;'}"
+                 onmousedown="adminApp.handleAppointmentDragStart(event)"
                  title="${appointment.customer_name} - ${appointment.start_time} tot ${appointment.end_time}">
                 
                 <div class="appointment-content">
@@ -1851,38 +1849,167 @@ class AdminApp {
         }
     }
 
-    // Drag-and-drop functions
+    // Enhanced drag-and-drop functions (Google Calendar style)
     handleAppointmentDragStart(event) {
-        const appointmentId = event.target.dataset.appointmentId;
-        event.dataTransfer.setData('text/plain', appointmentId);
-        event.target.style.opacity = '0.5';
-        console.log('🎯 Started dragging appointment:', appointmentId);
+        // Prevent click event from firing during drag
+        this.dragStartTime = Date.now();
+        this.hasDragged = false;
+        
+        // Don't start drag on resize handles or color picker
+        if (event.target.classList.contains('resize-handle') || 
+            event.target.closest('.appointment-color-picker')) {
+            return;
+        }
+        
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const appointmentBlock = event.currentTarget;
+        const appointmentId = appointmentBlock.dataset.appointmentId;
+        
+        // Store drag data
+        this.dragData = {
+            appointmentId: appointmentId,
+            originalBlock: appointmentBlock,
+            originalParent: appointmentBlock.parentElement,
+            appointmentData: null,
+            ghostElement: null,
+            startX: event.clientX,
+            startY: event.clientY,
+            threshold: 5 // Minimum pixels to move before considering it a drag
+        };
+        
+        // Add global drag event listeners
+        document.addEventListener('mousemove', this.handleDragMove.bind(this));
+        document.addEventListener('mouseup', this.handleDragEnd.bind(this));
+        
+        console.log('🎯 Started smooth dragging:', appointmentId);
     }
 
-    allowDrop(event) {
-        event.preventDefault();
-        event.currentTarget.classList.add('drag-over');
+    startVisualDrag() {
+        if (!this.dragData) return;
+        
+        // Create ghost element for smooth dragging
+        const ghostElement = this.dragData.originalBlock.cloneNode(true);
+        ghostElement.classList.add('appointment-ghost');
+        ghostElement.style.position = 'fixed';
+        ghostElement.style.pointerEvents = 'none';
+        ghostElement.style.zIndex = '9999';
+        ghostElement.style.opacity = '0.8';
+        ghostElement.style.transform = 'rotate(2deg)';
+        ghostElement.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)';
+        document.body.appendChild(ghostElement);
+        
+        this.dragData.ghostElement = ghostElement;
+        
+        // Make original semi-transparent
+        this.dragData.originalBlock.style.opacity = '0.3';
+        this.dragData.originalBlock.style.transform = 'scale(0.95)';
+        this.dragData.originalBlock.style.cursor = 'grabbing';
     }
 
-    async handleAppointmentDrop(event) {
-        event.preventDefault();
-        event.currentTarget.classList.remove('drag-over');
+    handleDragMove(event) {
+        if (!this.dragData) return;
         
-        const appointmentId = event.dataTransfer.getData('text/plain');
-        const newDate = event.currentTarget.dataset.date;
-        const newTime = event.currentTarget.dataset.time;
+        const deltaX = event.clientX - this.dragData.startX;
+        const deltaY = event.clientY - this.dragData.startY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         
-        console.log('📅 Dropping appointment:', { appointmentId, newDate, newTime });
+        // Only start visual dragging after threshold is exceeded
+        if (distance > this.dragData.threshold && !this.hasDragged) {
+            this.hasDragged = true;
+            this.startVisualDrag();
+        }
         
+        if (!this.hasDragged) return;
+        
+        // Update ghost position
+        if (this.dragData.ghostElement) {
+            this.dragData.ghostElement.style.left = (event.clientX - 50) + 'px';
+            this.dragData.ghostElement.style.top = (event.clientY - 15) + 'px';
+        }
+        
+        // Highlight drop targets
+        const elementBelow = document.elementFromPoint(event.clientX, event.clientY);
+        const timeSlot = elementBelow?.closest('.time-slot');
+        
+        // Clear previous highlights
+        document.querySelectorAll('.time-slot.drag-highlight').forEach(slot => {
+            slot.classList.remove('drag-highlight');
+        });
+        
+        if (timeSlot && timeSlot !== this.dragData.originalParent) {
+            timeSlot.classList.add('drag-highlight');
+        }
+    }
+
+    async handleDragEnd(event) {
+        if (!this.dragData) return;
+        
+        // Find drop target
+        const elementBelow = document.elementFromPoint(event.clientX, event.clientY);
+        const timeSlot = elementBelow?.closest('.time-slot');
+        
+        // Clean up ghost element
+        if (this.dragData.ghostElement) {
+            this.dragData.ghostElement.remove();
+        }
+        
+        // Reset original element
+        this.dragData.originalBlock.style.opacity = '1';
+        this.dragData.originalBlock.style.transform = '';
+        this.dragData.originalBlock.style.cursor = 'grab';
+        
+        // Clear highlights
+        document.querySelectorAll('.time-slot.drag-highlight').forEach(slot => {
+            slot.classList.remove('drag-highlight');
+        });
+        
+        // Remove event listeners
+        document.removeEventListener('mousemove', this.handleDragMove.bind(this));
+        document.removeEventListener('mouseup', this.handleDragEnd.bind(this));
+        
+        // Handle drop only if we actually dragged
+        if (this.hasDragged && timeSlot && timeSlot !== this.dragData.originalParent) {
+            await this.performAppointmentMove(timeSlot);
+        } else if (!this.hasDragged) {
+            // If we didn't drag, treat it as a click (but delay slightly to avoid conflicts)
+            setTimeout(() => {
+                this.showAppointmentDetails(this.dragData.appointmentId);
+            }, 10);
+        }
+        
+        this.dragData = null;
+        this.hasDragged = false;
+    }
+
+    async performAppointmentMove(targetSlot) {
         try {
-            // Calculate end time (assuming 1 hour duration)
-            const [hours, minutes] = newTime.split(':').map(Number);
-            const endTime = `${String(hours + 1).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            const appointmentId = this.dragData.appointmentId;
+            const newDate = targetSlot.dataset.date;
+            const newTime = targetSlot.dataset.time;
             
+            // Get original appointment data to preserve duration
+            const appointment = await this.apiCall('GET', `/api/appointments/${appointmentId}`);
+            const originalDuration = this.calculateAppointmentDuration(appointment.start_time, appointment.end_time);
+            
+            // Calculate new end time based on original duration
+            const [hours, minutes] = newTime.split(':').map(Number);
+            const totalStartMinutes = hours * 60 + minutes;
+            const totalEndMinutes = totalStartMinutes + originalDuration;
+            
+            const newEndHours = Math.floor(totalEndMinutes / 60);
+            const newEndMinutes = totalEndMinutes % 60;
+            const newEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMinutes).padStart(2, '0')}`;
+            
+            // Show loading state
+            this.dragData.originalBlock.classList.add('updating');
+            
+            // Perform API update
             await this.apiCall('PUT', `/api/appointments/${appointmentId}`, {
                 appointment_date: newDate,
                 start_time: newTime,
-                end_time: endTime
+                end_time: newEndTime
             });
             
             this.showNotification('Afspraak succesvol verplaatst!', 'success');
@@ -1891,12 +2018,22 @@ class AdminApp {
         } catch (error) {
             console.error('Error moving appointment:', error);
             this.showNotification('Fout bij verplaatsen afspraak: ' + error.message, 'error');
+            
+            // Remove loading state
+            if (this.dragData.originalBlock) {
+                this.dragData.originalBlock.classList.remove('updating');
+            }
         }
-        
-        // Reset drag styles
-        document.querySelectorAll('.appointment-block').forEach(block => {
-            block.style.opacity = '1';
-        });
+    }
+
+    // Legacy functions for HTML ondrop/ondragover - now redirect to new system
+    allowDrop(event) {
+        event.preventDefault();
+    }
+
+    async handleAppointmentDrop(event) {
+        // This is now handled by the new drag system
+        event.preventDefault();
     }
 
     // Appointment details modal
@@ -2181,91 +2318,200 @@ class AdminApp {
         }
     }
 
-    // Resize functionality
+    // Enhanced resize functionality (Google Calendar style)
     startResize(event, appointmentId, direction) {
         event.preventDefault();
         event.stopPropagation();
+        
+        const appointmentBlock = event.target.closest('.appointment-block');
+        const originalTimeSlot = appointmentBlock.parentElement;
         
         this.resizing = {
             appointmentId: appointmentId,
             direction: direction,
             startY: event.clientY,
-            originalBlock: event.target.closest('.appointment-block')
+            originalBlock: appointmentBlock,
+            originalTimeSlot: originalTimeSlot,
+            originalHeight: appointmentBlock.offsetHeight,
+            timeSlotHeight: 60, // Height of each 30-minute slot
+            previewElement: null,
+            minDuration: 30 // Minimum 30 minutes
         };
         
-        document.addEventListener('mousemove', this.handleResize.bind(this));
-        document.addEventListener('mouseup', this.stopResize.bind(this));
+        // Create preview element
+        this.createResizePreview();
         
-        console.log('🔧 Started resizing:', { appointmentId, direction });
+        // Add resize cursor to body
+        document.body.style.cursor = 'ns-resize';
+        appointmentBlock.style.userSelect = 'none';
+        
+        document.addEventListener('mousemove', this.handleSmoothResize.bind(this));
+        document.addEventListener('mouseup', this.stopSmoothResize.bind(this));
+        
+        console.log('🔧 Started smooth resizing:', { appointmentId, direction });
     }
 
-    handleResize(event) {
+    createResizePreview() {
+        const preview = this.resizing.originalBlock.cloneNode(true);
+        preview.classList.add('resize-preview');
+        preview.style.position = 'absolute';
+        preview.style.pointerEvents = 'none';
+        preview.style.zIndex = '1000';
+        preview.style.opacity = '0.7';
+        preview.style.border = '2px dashed #007bff';
+        preview.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+        
+        // Position it relative to original
+        const rect = this.resizing.originalBlock.getBoundingClientRect();
+        const containerRect = this.resizing.originalTimeSlot.getBoundingClientRect();
+        
+        preview.style.left = '2px';
+        preview.style.right = '2px';
+        preview.style.top = (rect.top - containerRect.top) + 'px';
+        preview.style.height = this.resizing.originalHeight + 'px';
+        
+        this.resizing.originalTimeSlot.appendChild(preview);
+        this.resizing.previewElement = preview;
+        
+        // Make original slightly transparent
+        this.resizing.originalBlock.style.opacity = '0.5';
+    }
+
+    handleSmoothResize(event) {
         if (!this.resizing) return;
         
         const deltaY = event.clientY - this.resizing.startY;
-        const timeSlotHeight = 60; // Height of each 30-minute slot
-        const slotsChanged = Math.round(deltaY / timeSlotHeight);
+        const slotHeight = this.resizing.timeSlotHeight;
+        const slotsChanged = Math.round(deltaY / slotHeight);
         
-        if (Math.abs(slotsChanged) > 0) {
-            this.resizing.originalBlock.style.opacity = '0.7';
-            this.resizing.originalBlock.style.transform = `scaleY(${1 + (slotsChanged * 0.1)})`;
+        if (this.resizing.previewElement) {
+            const currentRect = this.resizing.originalBlock.getBoundingClientRect();
+            const containerRect = this.resizing.originalTimeSlot.getBoundingClientRect();
+            
+            if (this.resizing.direction === 'top') {
+                // Resizing from top - change height and position
+                const newHeight = Math.max(this.resizing.minDuration, this.resizing.originalHeight - deltaY);
+                const topOffset = Math.min(deltaY, this.resizing.originalHeight - this.resizing.minDuration);
+                
+                this.resizing.previewElement.style.height = newHeight + 'px';
+                this.resizing.previewElement.style.top = ((currentRect.top - containerRect.top) + topOffset) + 'px';
+            } else {
+                // Resizing from bottom - only change height
+                const newHeight = Math.max(this.resizing.minDuration, this.resizing.originalHeight + deltaY);
+                this.resizing.previewElement.style.height = newHeight + 'px';
+            }
+            
+            // Show time preview
+            this.updateResizeTimePreview(slotsChanged);
         }
     }
 
-    async stopResize(event) {
+    updateResizeTimePreview(slotsChanged) {
+        if (!this.resizing.timePreview) {
+            this.resizing.timePreview = document.createElement('div');
+            this.resizing.timePreview.style.position = 'fixed';
+            this.resizing.timePreview.style.background = 'rgba(0,0,0,0.8)';
+            this.resizing.timePreview.style.color = 'white';
+            this.resizing.timePreview.style.padding = '4px 8px';
+            this.resizing.timePreview.style.borderRadius = '4px';
+            this.resizing.timePreview.style.fontSize = '12px';
+            this.resizing.timePreview.style.zIndex = '10000';
+            this.resizing.timePreview.style.pointerEvents = 'none';
+            document.body.appendChild(this.resizing.timePreview);
+        }
+        
+        const minutesChanged = slotsChanged * 30;
+        const newDuration = Math.max(30, this.resizing.originalHeight / this.resizing.timeSlotHeight * 30 + 
+                                    (this.resizing.direction === 'bottom' ? minutesChanged : -minutesChanged));
+        
+        this.resizing.timePreview.textContent = `Duur: ${Math.floor(newDuration / 60)}u ${newDuration % 60}m`;
+        this.resizing.timePreview.style.left = (event.clientX + 10) + 'px';
+        this.resizing.timePreview.style.top = (event.clientY - 10) + 'px';
+    }
+
+    async stopSmoothResize(event) {
         if (!this.resizing) return;
         
         const deltaY = event.clientY - this.resizing.startY;
-        const timeSlotHeight = 60;
-        const slotsChanged = Math.round(deltaY / timeSlotHeight);
+        const slotHeight = this.resizing.timeSlotHeight;
+        const slotsChanged = Math.round(deltaY / slotHeight);
         
-        if (Math.abs(slotsChanged) > 0) {
-            try {
-                const appointment = await this.apiCall('GET', `/api/appointments/${this.resizing.appointmentId}`);
-                const minutesChanged = slotsChanged * 30; // Each slot is 30 minutes
-                
-                let newStartTime = appointment.start_time;
-                let newEndTime = appointment.end_time;
-                
-                if (this.resizing.direction === 'top') {
-                    // Adjust start time
-                    const [hours, minutes] = appointment.start_time.split(':').map(Number);
-                    const totalMinutes = (hours * 60 + minutes) - minutesChanged;
-                    const newHours = Math.floor(totalMinutes / 60);
-                    const newMinutes = totalMinutes % 60;
-                    newStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
-                } else {
-                    // Adjust end time
-                    const [hours, minutes] = appointment.end_time.split(':').map(Number);
-                    const totalMinutes = (hours * 60 + minutes) + minutesChanged;
-                    const newHours = Math.floor(totalMinutes / 60);
-                    const newMinutes = totalMinutes % 60;
-                    newEndTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
-                }
-                
-                await this.apiCall('PUT', `/api/appointments/${this.resizing.appointmentId}`, {
-                    start_time: newStartTime,
-                    end_time: newEndTime
-                });
-                
-                this.showNotification('Afspraak duur succesvol bijgewerkt!', 'success');
-                this.refreshCalendarView();
-                
-            } catch (error) {
-                console.error('Error resizing appointment:', error);
-                this.showNotification('Fout bij aanpassen duur: ' + error.message, 'error');
-            }
+        // Clean up preview elements
+        if (this.resizing.previewElement) {
+            this.resizing.previewElement.remove();
+        }
+        if (this.resizing.timePreview) {
+            this.resizing.timePreview.remove();
         }
         
         // Reset styles
-        if (this.resizing.originalBlock) {
-            this.resizing.originalBlock.style.opacity = '1';
-            this.resizing.originalBlock.style.transform = '';
+        document.body.style.cursor = '';
+        this.resizing.originalBlock.style.opacity = '1';
+        this.resizing.originalBlock.style.userSelect = '';
+        
+        // Remove event listeners
+        document.removeEventListener('mousemove', this.handleSmoothResize.bind(this));
+        document.removeEventListener('mouseup', this.stopSmoothResize.bind(this));
+        
+        // Only resize if there's significant change (at least 15 minutes)
+        if (Math.abs(deltaY) > 30) {
+            await this.performResize(slotsChanged);
         }
         
         this.resizing = null;
-        document.removeEventListener('mousemove', this.handleResize.bind(this));
-        document.removeEventListener('mouseup', this.stopResize.bind(this));
+    }
+
+    async performResize(slotsChanged) {
+        try {
+            const appointment = await this.apiCall('GET', `/api/appointments/${this.resizing.appointmentId}`);
+            const minutesChanged = slotsChanged * 30;
+            
+            let newStartTime = appointment.start_time;
+            let newEndTime = appointment.end_time;
+            
+            if (this.resizing.direction === 'top') {
+                // Adjust start time (make appointment earlier/later)
+                const [hours, minutes] = appointment.start_time.split(':').map(Number);
+                const totalMinutes = Math.max(0, (hours * 60 + minutes) - minutesChanged);
+                const newHours = Math.floor(totalMinutes / 60);
+                const newMinutes = totalMinutes % 60;
+                newStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+            } else {
+                // Adjust end time (make appointment longer/shorter)
+                const [hours, minutes] = appointment.end_time.split(':').map(Number);
+                const totalMinutes = Math.max(0, (hours * 60 + minutes) + minutesChanged);
+                const newHours = Math.floor(totalMinutes / 60);
+                const newMinutes = totalMinutes % 60;
+                newEndTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+            }
+            
+            // Validate minimum duration
+            const startTotalMinutes = newStartTime.split(':').reduce((h, m) => h * 60 + +m);
+            const endTotalMinutes = newEndTime.split(':').reduce((h, m) => h * 60 + +m);
+            if (endTotalMinutes - startTotalMinutes < 30) {
+                this.showNotification('Minimum afspraak duur is 30 minuten', 'warning');
+                return;
+            }
+            
+            // Show updating state
+            this.resizing.originalBlock.classList.add('updating');
+            
+            await this.apiCall('PUT', `/api/appointments/${this.resizing.appointmentId}`, {
+                start_time: newStartTime,
+                end_time: newEndTime
+            });
+            
+            this.showNotification('Afspraak duur succesvol aangepast!', 'success');
+            this.refreshCalendarView();
+            
+        } catch (error) {
+            console.error('Error resizing appointment:', error);
+            this.showNotification('Fout bij aanpassen duur: ' + error.message, 'error');
+            
+            if (this.resizing && this.resizing.originalBlock) {
+                this.resizing.originalBlock.classList.remove('updating');
+            }
+        }
     }
 
     addCalendarCSS() {
@@ -2502,6 +2748,75 @@ class AdminApp {
             .color-option:hover {
                 transform: scale(1.1);
                 box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+            }
+            
+            /* Enhanced drag-and-drop effects */
+            .appointment-ghost {
+                box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+                transform: rotate(2deg) scale(1.05);
+                border: 2px solid #007bff;
+                transition: none;
+                cursor: grabbing;
+            }
+            
+            .time-slot.drag-highlight {
+                background-color: rgba(0, 123, 255, 0.15);
+                border: 2px dashed #007bff;
+                transform: scale(1.02);
+                transition: all 0.2s ease;
+            }
+            
+            .appointment-block.updating {
+                opacity: 0.7;
+                transform: scale(0.95);
+                transition: all 0.3s ease;
+            }
+            
+            .appointment-block.updating::after {
+                content: '⟳';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 16px;
+                animation: spin 1s linear infinite;
+                color: white;
+                text-shadow: 0 0 3px rgba(0,0,0,0.5);
+            }
+            
+            @keyframes spin {
+                from { transform: translate(-50%, -50%) rotate(0deg); }
+                to { transform: translate(-50%, -50%) rotate(360deg); }
+            }
+            
+            /* Enhanced resize preview */
+            .resize-preview {
+                animation: resizePreview 0.3s ease-in-out;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+            
+            @keyframes resizePreview {
+                from { opacity: 0; transform: scale(0.9); }
+                to { opacity: 0.7; transform: scale(1); }
+            }
+            
+            .resize-handle {
+                transition: all 0.2s ease;
+            }
+            
+            .resize-handle:hover {
+                background-color: rgba(0, 123, 255, 0.6);
+                height: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+            
+            /* Smooth transitions for all appointment interactions */
+            .appointment-block {
+                transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+            }
+            
+            .appointment-block:active {
+                transform: scale(0.98);
             }
             
             /* Responsive adjustments */
