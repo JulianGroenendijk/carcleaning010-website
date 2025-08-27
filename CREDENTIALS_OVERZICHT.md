@@ -23,9 +23,12 @@
 - **Admin Login** (lokaal - mock database):
   - Email: admin@carcleaning010.nl
   - Password: admin123
-- **Admin Login** (echte database):
+- **Admin Login** (lokaal - echte database):
   - Email: admin@carcleaning010.nl
   - Password: N5jWp6gb
+- **Admin Login** (VPS - huidige status):
+  - Email: admin@carcleaning010.nl
+  - Password: admin123 (nog niet geüpdatet)
 
 ## Server Credentials  
 - **VPS Provider**: TransIP
@@ -50,4 +53,7 @@
 
 ---
 **Laatste update**: 27 augustus 2025
-**Status**: Admin login werkt lokaal met mock database. Voor echte database: PostgreSQL service opstarten nodig.
+**Status**: 
+- ✅ Lokaal: Mock database werkt (admin123), echte DB heeft N5jWp6gb
+- ⚠️ VPS: Draait oude versie, gebruikt nog admin123 
+- 📋 TODO: VPS handmatig updaten via Plesk (zie VPS_UPDATE_INSTRUCTIES.md)
