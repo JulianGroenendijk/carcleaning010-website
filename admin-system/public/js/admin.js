@@ -2955,48 +2955,92 @@ class AdminApp {
     
     // Deployment functions
     async checkVersion() {
-        console.log('🔍 Checking current version...');
+        console.log('🔍 Checking version against GitHub...');
+        
+        const checkBtn = document.getElementById('check-version-btn');
+        const deployBtn = document.getElementById('deploy-btn');
+        const originalHtml = checkBtn.innerHTML;
+        
+        // Show loading state
+        checkBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Checking...';
+        checkBtn.className = 'btn btn-sm btn-outline-primary';
+        checkBtn.disabled = true;
         
         try {
-            const response = await fetch(this.baseURL + '/api/deploy/status');
+            const response = await fetch(this.baseURL + '/api/deploy/check-updates');
             const data = await response.json();
             
             if (response.ok) {
                 const versionBadge = document.getElementById('current-version');
-                versionBadge.textContent = `v${data.version}`;
-                versionBadge.className = 'badge bg-success me-2';
+                versionBadge.textContent = `v${data.local.version} (${data.local.commit})`;
                 
-                // Show success feedback on button instead of toast
-                const checkBtn = document.getElementById('check-version-btn');
-                const originalHtml = checkBtn.innerHTML;
-                checkBtn.innerHTML = '<i class="bi bi-check-circle text-white"></i> Geladen';
-                checkBtn.className = 'btn btn-sm btn-success';
-                
-                // Reset button after 2 seconds
-                setTimeout(() => {
-                    checkBtn.innerHTML = originalHtml;
-                    checkBtn.className = 'btn btn-sm btn-outline-secondary';
-                }, 2000);
+                if (data.hasUpdates) {
+                    // Updates available
+                    versionBadge.className = 'badge bg-warning text-dark me-2';
+                    
+                    // Update deploy button to show update availability
+                    deployBtn.innerHTML = '<i class="bi bi-download text-white me-1"></i> Update Beschikbaar';
+                    deployBtn.className = 'btn btn-warning';
+                    deployBtn.title = `Update naar ${data.remote.commit}`;
+                    
+                    // Show update available on check button
+                    checkBtn.innerHTML = '<i class="bi bi-exclamation-triangle text-white"></i> Update!';
+                    checkBtn.className = 'btn btn-sm btn-warning';
+                    
+                    setTimeout(() => {
+                        checkBtn.innerHTML = originalHtml;
+                        checkBtn.className = 'btn btn-sm btn-outline-secondary';
+                        checkBtn.disabled = false;
+                    }, 4000);
+                    
+                } else {
+                    // Up to date
+                    versionBadge.className = 'badge bg-success me-2';
+                    
+                    // Reset deploy button to normal state
+                    deployBtn.innerHTML = '<i class="bi bi-arrow-clockwise text-white me-1"></i> Deploy';
+                    deployBtn.className = 'btn btn-success';
+                    deployBtn.title = 'Systeem is up-to-date';
+                    
+                    // Show up-to-date on check button
+                    checkBtn.innerHTML = '<i class="bi bi-check-circle text-white"></i> Up-to-date';
+                    checkBtn.className = 'btn btn-sm btn-success';
+                    
+                    setTimeout(() => {
+                        checkBtn.innerHTML = originalHtml;
+                        checkBtn.className = 'btn btn-sm btn-outline-secondary';
+                        checkBtn.disabled = false;
+                    }, 3000);
+                }
                 
             } else {
                 document.getElementById('current-version').textContent = 'Error';
                 document.getElementById('current-version').className = 'badge bg-danger me-2';
                 
                 // Show error on button
-                const checkBtn = document.getElementById('check-version-btn');
-                const originalHtml = checkBtn.innerHTML;
                 checkBtn.innerHTML = '<i class="bi bi-x-circle text-white"></i> Fout';
                 checkBtn.className = 'btn btn-sm btn-danger';
                 
                 setTimeout(() => {
                     checkBtn.innerHTML = originalHtml;
                     checkBtn.className = 'btn btn-sm btn-outline-secondary';
+                    checkBtn.disabled = false;
                 }, 3000);
             }
         } catch (error) {
             console.error('Error checking version:', error);
             document.getElementById('current-version').textContent = 'Error';
             document.getElementById('current-version').className = 'badge bg-danger me-2';
+            
+            // Show error on button
+            checkBtn.innerHTML = '<i class="bi bi-x-circle text-white"></i> Fout';
+            checkBtn.className = 'btn btn-sm btn-danger';
+            
+            setTimeout(() => {
+                checkBtn.innerHTML = originalHtml;
+                checkBtn.className = 'btn btn-sm btn-outline-secondary';
+                checkBtn.disabled = false;
+            }, 3000);
         }
     }
     

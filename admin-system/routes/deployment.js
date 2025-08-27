@@ -222,15 +222,70 @@ router.post('/update-password', async (req, res) => {
 
 // Health check for deployment
 router.get('/status', (req, res) => {
+    // Read version from package.json
+    const packageJson = require('../package.json');
+    
     res.json({
         status: 'healthy',
-        version: '1.1.0', // Updated version
+        version: packageJson.version,
         deployment: {
             timestamp: new Date().toISOString(),
             environment: process.env.NODE_ENV || 'development',
             commit: process.env.GIT_COMMIT || 'unknown'
         }
     });
+});
+
+// Check for available updates from GitHub
+router.get('/check-updates', async (req, res) => {
+    try {
+        console.log('🔍 Checking for updates from GitHub...');
+        
+        const { exec } = require('child_process');
+        const path = require('path');
+        
+        // Get current local commit
+        exec('git rev-parse HEAD', { cwd: path.join(__dirname, '../../') }, (error, localCommit, stderr) => {
+            if (error) {
+                return res.status(500).json({ error: 'Failed to get local commit' });
+            }
+            
+            // Get remote commit
+            exec('git ls-remote origin main', { cwd: path.join(__dirname, '../../') }, (error, remoteOutput, stderr) => {
+                if (error) {
+                    return res.status(500).json({ error: 'Failed to get remote commit' });
+                }
+                
+                const remoteCommit = remoteOutput.split('\t')[0];
+                const localCommitShort = localCommit.trim().substring(0, 7);
+                const remoteCommitShort = remoteCommit.trim().substring(0, 7);
+                
+                const hasUpdates = localCommit.trim() !== remoteCommit.trim();
+                
+                // Read current version from package.json
+                const packageJson = require('../package.json');
+                
+                res.json({
+                    hasUpdates,
+                    local: {
+                        commit: localCommitShort,
+                        version: packageJson.version
+                    },
+                    remote: {
+                        commit: remoteCommitShort,
+                        available: hasUpdates
+                    },
+                    message: hasUpdates 
+                        ? `🆕 Update beschikbaar (${remoteCommitShort})` 
+                        : '✅ Systeem is up-to-date'
+                });
+            });
+        });
+        
+    } catch (error) {
+        console.error('❌ Update check error:', error);
+        res.status(500).json({ error: 'Update check failed' });
+    }
 });
 
 module.exports = router;
