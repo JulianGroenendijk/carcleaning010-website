@@ -4075,8 +4075,139 @@ class AdminApp {
     }
 
     showAddCustomerModal() {
-        // TODO: Implement customer modal
-        this.showToast('Klant toevoegen modal komt binnenkort beschikbaar', 'info');
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'addCustomerModal';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-person-plus text-primary"></i> Nieuwe Klant Toevoegen
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addCustomerForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="first_name" class="form-label">Voornaam *</label>
+                                    <input type="text" class="form-control" id="first_name" name="first_name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="last_name" class="form-label">Achternaam *</label>
+                                    <input type="text" class="form-control" id="last_name" name="last_name" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">E-mail *</label>
+                                    <input type="email" class="form-control" id="email" name="email" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="phone" class="form-label">Telefoonnummer</label>
+                                    <input type="tel" class="form-control" id="phone" name="phone">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="address" class="form-label">Adres</label>
+                                <input type="text" class="form-control" id="address" name="address">
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="city" class="form-label">Plaats</label>
+                                    <input type="text" class="form-control" id="city" name="city">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="postal_code" class="form-label">Postcode</label>
+                                    <input type="text" class="form-control" id="postal_code" name="postal_code">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">Notities</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                        <button type="button" class="btn btn-primary" id="saveCustomerBtn">
+                            <i class="bi bi-check-circle"></i> Klant Opslaan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Initialize Bootstrap modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Handle form submission
+        document.getElementById('saveCustomerBtn').addEventListener('click', async () => {
+            await this.saveCustomer(modal, bsModal);
+        });
+        
+        // Clean up when modal is hidden
+        modal.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modal);
+        });
+    }
+
+    async saveCustomer(modal, bsModal) {
+        const form = document.getElementById('addCustomerForm');
+        const formData = new FormData(form);
+        const customerData = {};
+        
+        // Collect form data
+        for (let [key, value] of formData.entries()) {
+            customerData[key] = value.trim();
+        }
+        
+        // Basic validation
+        if (!customerData.first_name || !customerData.last_name || !customerData.email) {
+            this.showToast('Vul alle verplichte velden in (voornaam, achternaam, e-mail)', 'error');
+            return;
+        }
+        
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(customerData.email)) {
+            this.showToast('Voer een geldig e-mailadres in', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const saveBtn = document.getElementById('saveCustomerBtn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Opslaan...';
+        saveBtn.disabled = true;
+        
+        try {
+            const response = await this.apiCall('POST', '/api/customers', customerData);
+            
+            this.showToast('Klant succesvol toegevoegd!', 'success');
+            bsModal.hide();
+            
+            // Refresh the customers list
+            await this.fetchCustomers();
+            
+        } catch (error) {
+            console.error('Error creating customer:', error);
+            
+            // Handle specific error messages
+            if (error.message && error.message.includes('email adres bestaat al')) {
+                this.showToast('Dit e-mailadres is al in gebruik door een andere klant', 'error');
+            } else {
+                this.showToast('Fout bij aanmaken klant: ' + (error.message || 'Onbekende fout'), 'error');
+            }
+            
+            // Restore button state
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
     }
 
     viewCustomer(id) {
