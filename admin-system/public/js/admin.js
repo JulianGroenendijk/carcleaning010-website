@@ -1569,7 +1569,7 @@ class AdminApp {
         // Add appointment button
         const addBtn = document.getElementById('add-appointment-btn');
         if (addBtn) {
-            addBtn.addEventListener('click', () => this.showAddAppointmentModal());
+            addBtn.addEventListener('click', () => this.showAddAppointmentModalV2());
         }
 
         // Search input real-time filtering
@@ -1644,7 +1644,7 @@ class AdminApp {
         }
     }
 
-    async showAddAppointmentModal() {
+    async showAddAppointmentModalV2() {
         console.log('➕ Opening add appointment modal');
         
         try {
