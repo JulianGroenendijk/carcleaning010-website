@@ -99,10 +99,20 @@ async function runDeployment() {
                         exec('npm audit fix --force', { cwd: path.join(__dirname, '../') }, (error) => {
                             console.log('🔒 Security fixes applied');
                             
-                            // Step 5: Restart PM2
-                            exec('pm2 restart carcleaning010-admin || echo "PM2 restart done"', (error) => {
-                                console.log('🚀 Application restarted');
-                                resolve(true);
+                            // Step 5: Run database migration
+                            console.log('🔧 Running database migration...');
+                            exec('cd /var/www/vhosts/carcleaning010.nl/carcleaning010-website/admin-system && node migrate_production.js', (error, stdout) => {
+                                if (error) {
+                                    console.warn('⚠️ Database migration warning:', error);
+                                } else {
+                                    console.log('✅ Database migration completed:', stdout);
+                                }
+                                
+                                // Step 6: Restart PM2
+                                exec('pm2 restart carcleaning010-admin || echo "PM2 restart done"', (error) => {
+                                    console.log('🚀 Application restarted');
+                                    resolve(true);
+                                });
                             });
                         });
                     } else {
@@ -180,25 +190,36 @@ router.post('/webhook', async (req, res) => {
                         }
                         console.log('🔒 Security fixes applied');
                         
-                        // Step 5: Restart application
-                        exec('pm2 restart carcleaning010-admin || echo "PM2 restart failed"', (error, stdout, stderr) => {
+                        // Step 5: Run database migration
+                        console.log('🔧 Running database migration...');
+                        exec('node migrate_production.js', { cwd: __dirname + '/..' }, (error, stdout, stderr) => {
                             if (error) {
-                                console.warn('⚠️ PM2 restart warning:', error);
+                                console.warn('⚠️ Database migration warning:', error);
+                            } else {
+                                console.log('✅ Database migration completed:', stdout);
                             }
                             
-                            console.log('🚀 Application restarted');
-                            
-                            res.json({ 
-                                success: true, 
-                                message: 'Full deployment completed (website + admin)',
-                                timestamp: new Date().toISOString(),
-                                steps: [
-                                    '✅ Git pull',
-                                    '✅ Website files deployed to httpdocs', 
-                                    '✅ Admin dependencies installed',
-                                    '✅ Security vulnerabilities fixed',
-                                    '✅ Admin application restarted'
-                                ]
+                            // Step 6: Restart application
+                            exec('pm2 restart carcleaning010-admin || echo "PM2 restart failed"', (error, stdout, stderr) => {
+                                if (error) {
+                                    console.warn('⚠️ PM2 restart warning:', error);
+                                }
+                                
+                                console.log('🚀 Application restarted');
+                                
+                                res.json({ 
+                                    success: true, 
+                                    message: 'Full deployment completed (website + admin + database)',
+                                    timestamp: new Date().toISOString(),
+                                    steps: [
+                                        '✅ Git pull',
+                                        '✅ Website files deployed to httpdocs', 
+                                        '✅ Admin dependencies installed',
+                                        '✅ Security vulnerabilities fixed',
+                                        '✅ Database migration completed',
+                                        '✅ Admin application restarted'
+                                    ]
+                                });
                             });
                         });
                     });

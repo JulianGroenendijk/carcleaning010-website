@@ -19,7 +19,9 @@
       "Bash(node server.js)",
       "Bash(node:*)",
       "Bash(psql:*)",
-      "Read(/C:\\Program Files\\PostgreSQL\\17\\data/**)"
+      "Read(/C:\\Program Files\\PostgreSQL\\17\\data/**)",
+      "Bash(net start:*)",
+      "Bash(sc query:*)"
     ],
     "deny": [],
     "ask": []
