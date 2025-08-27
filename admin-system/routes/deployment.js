@@ -445,4 +445,66 @@ router.post('/debug-query', async (req, res) => {
     }
 });
 
+// Test invoice debug endpoint
+router.get('/test-invoice/:id', async (req, res) => {
+    try {
+        const invoiceId = req.params.id;
+        const { query } = require('../database/connection');
+        
+        console.log('🧪 Testing invoice fetch for ID:', invoiceId);
+        
+        // Test the exact query from the route
+        const result = await query(`
+            SELECT 
+                i.*,
+                c.first_name || ' ' || c.last_name as customer_name,
+                c.email as customer_email,
+                c.phone as customer_phone,
+                c.address,
+                c.postal_code,
+                c.city,
+                q.quote_number,
+                CASE WHEN i.status = 'pending' AND i.due_date < CURRENT_DATE THEN true ELSE false END as is_overdue
+            FROM invoices i
+            JOIN customers c ON i.customer_id = c.id
+            LEFT JOIN quotes q ON i.quote_id = q.id
+            WHERE i.id = $1
+        `, [invoiceId]);
+
+        console.log('🧪 Query result:', result.rows.length, 'rows');
+        
+        if (result.rows.length === 0) {
+            return res.json({ debug: 'no_rows', invoiceId });
+        }
+
+        const invoice = result.rows[0];
+        console.log('🧪 Invoice found:', invoice.invoice_number);
+        
+        // Test items query
+        const itemsResult = await query(`
+            SELECT id, service_name, description, quantity, unit_price, total_price
+            FROM invoice_items
+            WHERE invoice_id = $1
+            ORDER BY created_at
+        `, [invoiceId]);
+        
+        console.log('🧪 Items found:', itemsResult.rows.length);
+        
+        res.json({
+            debug: 'success',
+            invoice: invoice,
+            items: itemsResult.rows,
+            itemCount: itemsResult.rows.length
+        });
+        
+    } catch (error) {
+        console.error('🧪 Test invoice error:', error);
+        res.status(500).json({ 
+            debug: 'error',
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
 module.exports = router;
