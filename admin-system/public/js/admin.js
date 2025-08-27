@@ -1648,8 +1648,8 @@ class AdminApp {
         console.log('➕ Opening add appointment modal');
         
         try {
-            // Fetch customers for dropdown
-            const customers = await this.apiCall('GET', '/api/customers?limit=1000');
+            // Fetch customers for dropdown (max allowed by validation)
+            const customers = await this.apiCall('GET', '/api/customers?limit=100');
             
             // Create modal HTML
             const modalHTML = `
