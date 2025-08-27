@@ -58,13 +58,24 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files - configured for /admin reverse proxy
-app.use('/admin/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/admin', express.static(path.join(__dirname, 'public')));
+// Static files - configured for /admin reverse proxy (no cache for development)
+const noCacheOptions = {
+    etag: false,
+    lastModified: false,
+    maxAge: 0,
+    setHeaders: (res, path) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+};
+
+app.use('/admin/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
+app.use('/admin', express.static(path.join(__dirname, 'public'), noCacheOptions));
 
 // Fallback for direct access (development)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
+app.use(express.static(path.join(__dirname, 'public'), noCacheOptions));
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
