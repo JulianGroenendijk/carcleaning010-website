@@ -12,6 +12,9 @@ const { verifyToken } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for reverse proxy setup (Plesk/nginx)
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet({
     contentSecurityPolicy: {
