@@ -3006,17 +3006,21 @@ class AdminApp {
             const data = await response.json();
             
             if (response.ok) {
-                // Complete all steps
-                this.completeDeploymentProgress();
-                this.showToast('🎉 Deployment succesvol voltooid!', 'success');
+                if (data.upToDate) {
+                    // System is already up to date
+                    this.completeDeploymentProgress();
+                    this.showToast('✅ Systeem is al up-to-date!', 'info');
+                } else {
+                    // Complete all steps
+                    this.completeDeploymentProgress();
+                    this.showToast('🎉 Deployment succesvol voltooid!', 'success');
+                    
+                    // Update version
+                    setTimeout(() => this.checkVersion(), 1000);
+                }
                 
-                // Update version
-                setTimeout(() => this.checkVersion(), 1000);
-                
-                // Auto-hide progress after 3 seconds
-                setTimeout(() => {
-                    progressDiv.style.display = 'none';
-                }, 3000);
+                // Auto-hide progress after 5 seconds with countdown
+                this.startProgressHideCountdown(progressDiv, 5);
                 
             } else {
                 this.failDeploymentProgress();
@@ -3129,6 +3133,23 @@ class AdminApp {
                 icon.className = 'bi bi-x-circle text-danger';
                 break;
         }
+    }
+    
+    startProgressHideCountdown(progressDiv, seconds) {
+        const headerElement = progressDiv.querySelector('.card-header h6');
+        const originalText = headerElement.innerHTML;
+        
+        let countdown = seconds;
+        const countdownInterval = setInterval(() => {
+            headerElement.innerHTML = `<i class="bi bi-check-circle text-white"></i> Deployment Voltooid - Verbergt over ${countdown}s`;
+            countdown--;
+            
+            if (countdown < 0) {
+                clearInterval(countdownInterval);
+                progressDiv.style.display = 'none';
+                headerElement.innerHTML = originalText; // Reset for next time
+            }
+        }, 1000);
     }
 
     // Utility methods

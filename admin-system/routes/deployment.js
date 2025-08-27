@@ -30,6 +30,16 @@ router.post('/webhook', async (req, res) => {
             
             console.log('✅ Git pull successful:', stdout);
             
+            // Check if already up to date
+            if (stdout.includes('Already up to date') || stdout.includes('Already up-to-date')) {
+                return res.json({
+                    success: true,
+                    message: '✅ Systeem is al up-to-date - geen wijzigingen gevonden',
+                    upToDate: true,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
             // Step 2: Deploy website files to httpdocs
             const deployWebsite = `
                 cd /var/www/vhosts/carcleaning010.nl
