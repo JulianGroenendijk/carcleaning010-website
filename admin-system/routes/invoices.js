@@ -143,7 +143,7 @@ router.get('/:id', async (req, res) => {
             SELECT id, service_name, description, quantity, unit_price, total_price
             FROM invoice_items
             WHERE invoice_id = $1
-            ORDER BY created_at
+            ORDER BY id
         `, [invoiceId]);
         
         invoice.items = itemsResult.rows;
