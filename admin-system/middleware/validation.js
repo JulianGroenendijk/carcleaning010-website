@@ -31,27 +31,27 @@ const validateCustomer = [
         .isLength({ min: 1, max: 100 })
         .withMessage('Achternaam is verplicht (max 100 tekens)'),
     body('phone')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
-        .isLength({ min: 1, max: 50 })
+        .isLength({ max: 50 })
         .withMessage('Telefoonnummer mag maximaal 50 tekens zijn'),
     body('address')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isLength({ max: 255 })
         .withMessage('Adres mag maximaal 255 tekens zijn'),
     body('city')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isLength({ max: 100 })
         .withMessage('Stad mag maximaal 100 tekens zijn'),
     body('postal_code')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
-        .isLength({ min: 1, max: 20 })
+        .isLength({ max: 20 })
         .withMessage('Postcode mag maximaal 20 tekens zijn'),
     body('notes')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
         .isLength({ max: 1000 })
         .withMessage('Notities mogen maximaal 1000 tekens zijn'),

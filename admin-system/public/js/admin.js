@@ -4173,16 +4173,34 @@ class AdminApp {
         const formData = new FormData(form);
         const customerData = {};
         
-        // Collect form data
+        // Collect form data - only include non-empty values
         for (let [key, value] of formData.entries()) {
-            customerData[key] = value.trim();
+            const trimmedValue = value.trim();
+            if (trimmedValue) {  // Only include non-empty values
+                customerData[key] = trimmedValue;
+            }
         }
         
-        // Basic validation
+        // Basic validation for required fields
         if (!customerData.first_name || !customerData.last_name || !customerData.email) {
-            this.showToast('Vul alle verplichte velden in (voornaam, achternaam, e-mail)', 'error');
+            // Highlight missing required fields
+            if (!customerData.first_name) {
+                document.getElementById('first_name').classList.add('is-invalid');
+            }
+            if (!customerData.last_name) {
+                document.getElementById('last_name').classList.add('is-invalid');
+            }
+            if (!customerData.email) {
+                document.getElementById('email').classList.add('is-invalid');
+            }
+            this.showToast('Vul alle verplichte velden in (gemarkeerd in rood)', 'error');
             return;
         }
+        
+        // Remove invalid classes if validation passes
+        document.getElementById('first_name').classList.remove('is-invalid');
+        document.getElementById('last_name').classList.remove('is-invalid');
+        document.getElementById('email').classList.remove('is-invalid');
         
         // Email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
