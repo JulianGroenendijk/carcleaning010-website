@@ -96,6 +96,9 @@ app.use('/api/settings', verifyToken, require('./routes/settings'));
 // Website lead endpoint (zonder auth voor website formulier)
 app.use('/api/website-leads', require('./routes/websiteLeads'));
 
+// Deployment endpoints (minimal auth for remote updates)
+app.use('/api/deploy', require('./routes/deployment'));
+
 // Catch-all voor frontend routing (SPA) - exclude static files
 app.get('*', (req, res) => {
     // Don't serve index.html for static files (js, css, images, etc.)
