@@ -1362,15 +1362,39 @@ class AdminApp {
             section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="bi bi-calendar-check text-success"></i> Planning Beheer</h1>
-                    <button class="btn btn-primary" id="add-appointment-btn">
-                        <i class="bi bi-calendar-plus"></i> Nieuwe Afspraak
-                    </button>
+                    <div class="d-flex gap-2">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-secondary" id="list-view-btn">
+                                <i class="bi bi-list-ul"></i> Lijst
+                            </button>
+                            <button type="button" class="btn btn-secondary active" id="calendar-view-btn">
+                                <i class="bi bi-calendar3"></i> Agenda
+                            </button>
+                        </div>
+                        <button class="btn btn-primary" id="add-appointment-btn">
+                            <i class="bi bi-calendar-plus"></i> Nieuwe Afspraak
+                        </button>
+                    </div>
                 </div>
                 
-                <!-- Filters -->
-                <div class="card mb-4">
+                <!-- Time Period Selector & Filters -->
+                <div class="card mb-4" id="calendar-controls">
                     <div class="card-body">
-                        <div class="row g-3">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label"><i class="bi bi-calendar-range"></i> Periode</label>
+                                <div class="btn-group w-100" role="group">
+                                    <button type="button" class="btn btn-outline-primary active" data-period="today">Vandaag</button>
+                                    <button type="button" class="btn btn-outline-primary" data-period="tomorrow">Morgen</button>
+                                    <button type="button" class="btn btn-outline-primary" data-period="week">Deze Week</button>
+                                    <button type="button" class="btn btn-outline-primary" data-period="next-week">Volgende Week</button>
+                                    <button type="button" class="btn btn-outline-primary" data-period="month">Deze Maand</button>
+                                    <button type="button" class="btn btn-outline-primary" data-period="next-month">Volgende Maand</button>
+                                    <button type="button" class="btn btn-outline-primary" data-period="quarter">Dit Kwartaal</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3" id="list-filters" style="display: none;">
                             <div class="col-md-3">
                                 <label for="appointment-search" class="form-label">Zoeken</label>
                                 <input type="text" class="form-control" id="appointment-search" 
@@ -1381,7 +1405,6 @@ class AdminApp {
                                 <select class="form-select" id="appointment-status-filter">
                                     <option value="">Alle statussen</option>
                                     <option value="scheduled">Gepland</option>
-                                    <option value="confirmed">Bevestigd</option>
                                     <option value="in_progress">Bezig</option>
                                     <option value="completed">Voltooid</option>
                                     <option value="cancelled">Geannuleerd</option>
@@ -1408,8 +1431,8 @@ class AdminApp {
                     </div>
                 </div>
                 
-                <!-- Appointments Table -->
-                <div class="card">
+                <!-- List View -->
+                <div class="card" id="appointments-list-view" style="display: none;">
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
@@ -1433,10 +1456,22 @@ class AdminApp {
                         ${this.renderPagination(appointments.pagination)}
                     </div>
                 </div>
+
+                <!-- Calendar/Agenda View -->
+                <div id="appointments-calendar-view">
+                    <div class="calendar-container" style="height: 80vh; overflow-y: auto;">
+                        <div id="calendar-grid" class="calendar-grid">
+                            ${this.renderCalendarGrid(appointments.appointments || [])}
+                        </div>
+                    </div>
+                </div>
             `;
             
             // Add event listeners
             this.addAppointmentEventListeners();
+            
+            // Add calendar CSS
+            this.addCalendarCSS();
             
         } catch (error) {
             console.error('Error loading appointments:', error);
@@ -1529,6 +1564,161 @@ class AdminApp {
         `).join('');
     }
 
+    renderCalendarGrid(appointments) {
+        // Get the current period from UI (default to today)
+        const activePeriod = document.querySelector('[data-period].active')?.dataset.period || 'today';
+        const { startDate, endDate, days } = this.getPeriodDates(activePeriod);
+        
+        // Generate time slots (7:00 - 20:00 in 30-minute intervals)
+        const timeSlots = [];
+        for (let hour = 7; hour < 20; hour++) {
+            timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+            timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+        }
+        
+        let calendarHTML = `
+            <div class="calendar-header">
+                <div class="time-column-header">Tijd</div>
+        `;
+        
+        // Add day headers
+        days.forEach(day => {
+            const dayDate = new Date(day);
+            const isToday = dayDate.toDateString() === new Date().toDateString();
+            calendarHTML += `
+                <div class="day-header ${isToday ? 'today' : ''}">
+                    <div class="day-name">${this.getDayName(dayDate)}</div>
+                    <div class="day-date">${dayDate.getDate()}/${dayDate.getMonth() + 1}</div>
+                </div>
+            `;
+        });
+        
+        calendarHTML += `</div><div class="calendar-body">`;
+        
+        // Add time slots and day columns
+        timeSlots.forEach(timeSlot => {
+            calendarHTML += `
+                <div class="time-row">
+                    <div class="time-label">${timeSlot}</div>
+            `;
+            
+            days.forEach(day => {
+                const dayAppointments = this.getAppointmentsForTimeSlot(appointments, day, timeSlot);
+                calendarHTML += `
+                    <div class="time-slot" data-date="${day}" data-time="${timeSlot}" 
+                         ondrop="adminApp.handleAppointmentDrop(event)" 
+                         ondragover="adminApp.allowDrop(event)">
+                        ${dayAppointments.map(apt => this.renderAppointmentBlock(apt)).join('')}
+                    </div>
+                `;
+            });
+            
+            calendarHTML += `</div>`;
+        });
+        
+        calendarHTML += `</div>`;
+        
+        return calendarHTML;
+    }
+
+    getPeriodDates(period) {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+        
+        switch (period) {
+            case 'today':
+                return {
+                    startDate: new Date(today),
+                    endDate: new Date(today),
+                    days: [today.toISOString().split('T')[0]]
+                };
+            case 'tomorrow':
+                const tomorrow = new Date(today);
+                tomorrow.setDate(today.getDate() + 1);
+                return {
+                    startDate: tomorrow,
+                    endDate: tomorrow,
+                    days: [tomorrow.toISOString().split('T')[0]]
+                };
+            case 'week':
+                const weekEnd = new Date(startOfWeek);
+                weekEnd.setDate(startOfWeek.getDate() + 6);
+                const weekDays = [];
+                for (let i = 0; i < 7; i++) {
+                    const day = new Date(startOfWeek);
+                    day.setDate(startOfWeek.getDate() + i);
+                    weekDays.push(day.toISOString().split('T')[0]);
+                }
+                return { startDate: startOfWeek, endDate: weekEnd, days: weekDays };
+            case 'next-week':
+                const nextWeekStart = new Date(startOfWeek);
+                nextWeekStart.setDate(startOfWeek.getDate() + 7);
+                const nextWeekEnd = new Date(nextWeekStart);
+                nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+                const nextWeekDays = [];
+                for (let i = 0; i < 7; i++) {
+                    const day = new Date(nextWeekStart);
+                    day.setDate(nextWeekStart.getDate() + i);
+                    nextWeekDays.push(day.toISOString().split('T')[0]);
+                }
+                return { startDate: nextWeekStart, endDate: nextWeekEnd, days: nextWeekDays };
+            case 'month':
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                const monthDays = [];
+                for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+                    monthDays.push(new Date(d).toISOString().split('T')[0]);
+                }
+                return { startDate: monthStart, endDate: monthEnd, days: monthDays };
+            default:
+                return {
+                    startDate: new Date(today),
+                    endDate: new Date(today),
+                    days: [today.toISOString().split('T')[0]]
+                };
+        }
+    }
+
+    getDayName(date) {
+        const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+        return days[date.getDay()];
+    }
+
+    getAppointmentsForTimeSlot(appointments, date, timeSlot) {
+        return appointments.filter(apt => {
+            const aptDate = new Date(apt.appointment_date).toISOString().split('T')[0];
+            const aptTime = apt.start_time.substring(0, 5); // Get HH:MM format
+            return aptDate === date && aptTime === timeSlot;
+        });
+    }
+
+    renderAppointmentBlock(appointment) {
+        const statusClass = this.getAppointmentStatusClass(appointment.status);
+        return `
+            <div class="appointment-block ${statusClass}" 
+                 draggable="true" 
+                 data-appointment-id="${appointment.id}"
+                 ondragstart="adminApp.handleAppointmentDragStart(event)"
+                 title="${appointment.customer_name} - ${appointment.start_time}">
+                <div class="appointment-title">${appointment.customer_name}</div>
+                <div class="appointment-time">${this.formatTime(appointment.start_time)}</div>
+                <div class="appointment-status">${this.formatStatus(appointment.status)}</div>
+            </div>
+        `;
+    }
+
+    formatStatus(status) {
+        const statusLabels = {
+            'scheduled': 'Gepland',
+            'in_progress': 'Bezig',
+            'completed': 'Voltooid',
+            'cancelled': 'Geannuleerd',
+            'no_show': 'Niet verschenen'
+        };
+        return statusLabels[status] || status;
+    }
+
     getAppointmentStatusClass(status) {
         switch (status) {
             case 'scheduled': return 'bg-primary';
@@ -1554,6 +1744,27 @@ class AdminApp {
     }
 
     addAppointmentEventListeners() {
+        // View toggle buttons
+        const listViewBtn = document.getElementById('list-view-btn');
+        const calendarViewBtn = document.getElementById('calendar-view-btn');
+        
+        if (listViewBtn) {
+            listViewBtn.addEventListener('click', () => this.toggleAppointmentView('list'));
+        }
+        
+        if (calendarViewBtn) {
+            calendarViewBtn.addEventListener('click', () => this.toggleAppointmentView('calendar'));
+        }
+
+        // Period selector buttons
+        document.querySelectorAll('[data-period]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.refreshCalendarView();
+            });
+        });
+
         // Filter button
         const filterBtn = document.getElementById('filter-appointments-btn');
         if (filterBtn) {
@@ -1577,6 +1788,248 @@ class AdminApp {
         if (searchInput) {
             searchInput.addEventListener('input', this.debounce(() => this.filterAppointments(), 300));
         }
+    }
+
+    toggleAppointmentView(view) {
+        const listView = document.getElementById('appointments-list-view');
+        const calendarView = document.getElementById('appointments-calendar-view');
+        const listFilters = document.getElementById('list-filters');
+        const listViewBtn = document.getElementById('list-view-btn');
+        const calendarViewBtn = document.getElementById('calendar-view-btn');
+        
+        if (view === 'list') {
+            listView.style.display = 'block';
+            calendarView.style.display = 'none';
+            listFilters.style.display = 'flex';
+            listViewBtn.classList.add('active');
+            calendarViewBtn.classList.remove('active');
+        } else {
+            listView.style.display = 'none';
+            calendarView.style.display = 'block';
+            listFilters.style.display = 'none';
+            calendarViewBtn.classList.add('active');
+            listViewBtn.classList.remove('active');
+            this.refreshCalendarView();
+        }
+    }
+
+    async refreshCalendarView() {
+        try {
+            const appointments = await this.apiCall('GET', '/api/appointments');
+            const calendarGrid = document.getElementById('calendar-grid');
+            if (calendarGrid) {
+                calendarGrid.innerHTML = this.renderCalendarGrid(appointments.appointments || []);
+            }
+        } catch (error) {
+            console.error('Error refreshing calendar view:', error);
+        }
+    }
+
+    // Drag-and-drop functions
+    handleAppointmentDragStart(event) {
+        const appointmentId = event.target.dataset.appointmentId;
+        event.dataTransfer.setData('text/plain', appointmentId);
+        event.target.style.opacity = '0.5';
+        console.log('🎯 Started dragging appointment:', appointmentId);
+    }
+
+    allowDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.add('drag-over');
+    }
+
+    async handleAppointmentDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('drag-over');
+        
+        const appointmentId = event.dataTransfer.getData('text/plain');
+        const newDate = event.currentTarget.dataset.date;
+        const newTime = event.currentTarget.dataset.time;
+        
+        console.log('📅 Dropping appointment:', { appointmentId, newDate, newTime });
+        
+        try {
+            // Calculate end time (assuming 1 hour duration)
+            const [hours, minutes] = newTime.split(':').map(Number);
+            const endTime = `${String(hours + 1).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            
+            await this.apiCall('PUT', `/api/appointments/${appointmentId}`, {
+                appointment_date: newDate,
+                start_time: newTime,
+                end_time: endTime
+            });
+            
+            this.showNotification('Afspraak succesvol verplaatst!', 'success');
+            this.refreshCalendarView();
+            
+        } catch (error) {
+            console.error('Error moving appointment:', error);
+            this.showNotification('Fout bij verplaatsen afspraak: ' + error.message, 'error');
+        }
+        
+        // Reset drag styles
+        document.querySelectorAll('.appointment-block').forEach(block => {
+            block.style.opacity = '1';
+        });
+    }
+
+    addCalendarCSS() {
+        // Check if calendar CSS already exists
+        if (document.getElementById('calendar-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'calendar-styles';
+        style.innerHTML = `
+            /* Calendar Grid Styles */
+            .calendar-grid {
+                display: flex;
+                flex-direction: column;
+                min-width: 100%;
+            }
+            
+            .calendar-header {
+                display: grid;
+                grid-template-columns: 80px repeat(auto-fit, minmax(120px, 1fr));
+                gap: 1px;
+                background-color: #dee2e6;
+                border-radius: 8px 8px 0 0;
+            }
+            
+            .time-column-header,
+            .day-header {
+                background-color: #495057;
+                color: white;
+                padding: 12px 8px;
+                text-align: center;
+                font-weight: 600;
+                font-size: 0.875rem;
+            }
+            
+            .day-header.today {
+                background-color: #0d6efd;
+            }
+            
+            .day-name {
+                font-weight: 700;
+                margin-bottom: 2px;
+            }
+            
+            .day-date {
+                font-size: 0.75rem;
+                opacity: 0.9;
+            }
+            
+            .calendar-body {
+                display: flex;
+                flex-direction: column;
+                background-color: #f8f9fa;
+            }
+            
+            .time-row {
+                display: grid;
+                grid-template-columns: 80px repeat(auto-fit, minmax(120px, 1fr));
+                gap: 1px;
+                min-height: 60px;
+                border-bottom: 1px solid #dee2e6;
+            }
+            
+            .time-label {
+                background-color: #e9ecef;
+                padding: 8px;
+                text-align: center;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: #495057;
+                border-right: 2px solid #dee2e6;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .time-slot {
+                background-color: white;
+                border: 1px solid #f8f9fa;
+                min-height: 60px;
+                position: relative;
+                cursor: pointer;
+                transition: background-color 0.2s ease;
+            }
+            
+            .time-slot:hover {
+                background-color: #e3f2fd;
+            }
+            
+            .time-slot.drag-over {
+                background-color: #bbdefb;
+                border: 2px dashed #2196f3;
+            }
+            
+            .appointment-block {
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                right: 2px;
+                bottom: 2px;
+                border-radius: 6px;
+                padding: 4px 6px;
+                color: white;
+                cursor: move;
+                font-size: 0.75rem;
+                line-height: 1.2;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            
+            .appointment-block:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            }
+            
+            .appointment-block.bg-primary { background-color: #0d6efd; }
+            .appointment-block.bg-success { background-color: #198754; }
+            .appointment-block.bg-warning { background-color: #fd7e14; color: #000; }
+            .appointment-block.bg-danger { background-color: #dc3545; }
+            .appointment-block.bg-secondary { background-color: #6c757d; }
+            
+            .appointment-title {
+                font-weight: 600;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            
+            .appointment-time {
+                font-size: 0.65rem;
+                opacity: 0.9;
+            }
+            
+            .appointment-status {
+                font-size: 0.65rem;
+                opacity: 0.8;
+            }
+            
+            /* Responsive adjustments */
+            @media (max-width: 768px) {
+                .calendar-header {
+                    grid-template-columns: 60px repeat(auto-fit, minmax(100px, 1fr));
+                }
+                
+                .time-row {
+                    grid-template-columns: 60px repeat(auto-fit, minmax(100px, 1fr));
+                }
+                
+                .time-label {
+                    font-size: 0.65rem;
+                }
+                
+                .day-header {
+                    padding: 8px 4px;
+                    font-size: 0.75rem;
+                }
+            }
+        `;
+        
+        document.head.appendChild(style);
     }
 
     async filterAppointments() {
