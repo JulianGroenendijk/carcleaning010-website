@@ -178,6 +178,50 @@ class MockDatabase {
             };
         }
 
+        // Invoice number generation query
+        if (sql.includes('SUBSTRING(invoice_number FROM') && sql.includes('next_number')) {
+            // Generate next invoice number based on existing invoices
+            const invoiceNumbers = this.tables.invoices
+                .map(inv => inv.invoice_number)
+                .filter(num => num && num.match(/^INV\d+$/))
+                .map(num => parseInt(num.replace('INV', '')))
+                .sort((a, b) => b - a); // Sort descending
+            
+            const nextNumber = invoiceNumbers.length > 0 ? invoiceNumbers[0] + 1 : 1;
+            return { rows: [{ next_number: nextNumber }] };
+        }
+
+        // Invoice creation queries
+        if (sql.includes('INSERT INTO invoices')) {
+            // Mock invoice creation
+            const newInvoice = {
+                id: 'invoice-' + Date.now(),
+                invoice_number: `INV${String(this.tables.invoices.length + 1).padStart(4, '0')}`,
+                customer_id: params[0],
+                quote_id: params[1],
+                description: params[3],
+                subtotal_amount: params[4],
+                discount_percentage: params[5],
+                discount_amount: params[6],
+                tax_percentage: params[7],
+                tax_amount: params[8],
+                total_amount: params[9],
+                due_date: params[10],
+                notes: params[11],
+                status: 'draft',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            this.tables.invoices.push(newInvoice);
+            return { rows: [newInvoice] };
+        }
+
+        // Invoice items creation queries
+        if (sql.includes('INSERT INTO invoice_items')) {
+            // Mock - just return success, items are handled in the route
+            return { rows: [] };
+        }
+
         // Default empty response
         return { rows: [] };
     }

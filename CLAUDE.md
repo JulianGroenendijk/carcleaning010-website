@@ -32,7 +32,7 @@ pm2 restart carcleaning010-admin
 
 ### Local Development
 - **Mock DB**: admin@carcleaning010.nl / admin123
-- **Real DB**: admin@carcleaning010.nl / N5jWp6gb
+- **Real DB**: admin@carcleaning010.nl / admin123 (password reset working)
 
 ### VPS Production  
 - **Current**: admin@carcleaning010.nl / admin123
