@@ -2965,10 +2965,33 @@ class AdminApp {
                 const versionBadge = document.getElementById('current-version');
                 versionBadge.textContent = `v${data.version}`;
                 versionBadge.className = 'badge bg-success me-2';
-                this.showToast(`✅ Huidige versie: ${data.version}`, 'info');
+                
+                // Show success feedback on button instead of toast
+                const checkBtn = document.getElementById('check-version-btn');
+                const originalHtml = checkBtn.innerHTML;
+                checkBtn.innerHTML = '<i class="bi bi-check-circle text-white"></i> Geladen';
+                checkBtn.className = 'btn btn-sm btn-success';
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    checkBtn.innerHTML = originalHtml;
+                    checkBtn.className = 'btn btn-sm btn-outline-secondary';
+                }, 2000);
+                
             } else {
                 document.getElementById('current-version').textContent = 'Error';
                 document.getElementById('current-version').className = 'badge bg-danger me-2';
+                
+                // Show error on button
+                const checkBtn = document.getElementById('check-version-btn');
+                const originalHtml = checkBtn.innerHTML;
+                checkBtn.innerHTML = '<i class="bi bi-x-circle text-white"></i> Fout';
+                checkBtn.className = 'btn btn-sm btn-danger';
+                
+                setTimeout(() => {
+                    checkBtn.innerHTML = originalHtml;
+                    checkBtn.className = 'btn btn-sm btn-outline-secondary';
+                }, 3000);
             }
         } catch (error) {
             console.error('Error checking version:', error);
