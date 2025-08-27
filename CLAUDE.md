@@ -49,6 +49,23 @@ cd admin-system && node server.js
 # Change .env DB_PASSWORD to IDPRO_S3cure!Db_2025
 ```
 
+### Deployment
+```bash
+# Automatic deployment with migration (RECOMMENDED)
+curl -X POST https://carcleaning010.nl/admin/api/deploy/trigger
+
+# Check deployment status
+curl https://carcleaning010.nl/admin/api/deploy/status
+
+# Manual VPS update (if needed)
+cd /var/www/vhosts/carcleaning010.nl/carcleaning010-website
+git pull origin main
+cd admin-system
+npm install --production
+node migrate_production.js
+pm2 restart carcleaning010-admin
+```
+
 ### Testing
 ```bash
 # Test VPS admin login
@@ -64,8 +81,16 @@ curl https://carcleaning010.nl/admin/api/health
 
 1. **Local development**: Use mock database (DB_PASSWORD=your_postgres_password)
 2. **Local with real DB**: Use IDPRO_S3cure!Db_2025 and start PostgreSQL
-3. **VPS updates**: Always git pull from carcleaning010-website root directory
-4. **Password sync**: Update VPS password after code updates
+3. **VPS updates**: Use deployment trigger endpoint (automatic git pull + migration + restart)
+4. **Database migrations**: Automatically included in deployment process
+5. **Version tracking**: Dynamic git-based versioning (1.2.{commits}-{hash})
+
+## ✅ **RECENT DEPLOYMENT STATUS** (2025-08-27)
+- **VPS Version**: 1.2.44-ce3ea7e  
+- **Database Migration**: ✅ COMPLETED
+- **Invoice Creation**: ✅ FIXED
+- **Cache Issues**: ✅ RESOLVED
+- **Dynamic Versioning**: ✅ IMPLEMENTED
 
 ---
-*Last updated: 2025-08-27*
+*Last updated: 2025-08-27 (na succesvolle database migratie)*
