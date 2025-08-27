@@ -81,26 +81,12 @@ const noCacheOptions = {
 
 app.use('/admin/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
 
-// Custom middleware for HTML with cache-busting
+// Serve admin HTML without cache
 app.get('/admin', (req, res) => {
-    const fs = require('fs');
-    const indexPath = path.join(__dirname, 'public', 'index.html');
-    
-    fs.readFile(indexPath, 'utf8', (err, data) => {
-        if (err) {
-            res.status(500).send('Error loading page');
-            return;
-        }
-        
-        // Replace cache-buster with current timestamp
-        const cacheBustedHTML = data.replace(/admin\.js\?v=CACHE_BUSTER_TIMESTAMP/, `admin.js?v=${Date.now()}`);
-        
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.send(cacheBustedHTML);
-    });
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.use('/admin', express.static(path.join(__dirname, 'public'), noCacheOptions));
