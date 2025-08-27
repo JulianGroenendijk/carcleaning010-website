@@ -3918,7 +3918,200 @@ class AdminApp {
     
     async viewInvoice(id) {
         console.log('👁️ View invoice:', id);
-        this.showToast(`Factuur ${id} bekijken komt binnenkort!`, 'info');
+        
+        try {
+            const invoice = await this.apiCall('GET', `/api/invoices/${id}`);
+            this.showInvoiceModal(invoice);
+        } catch (error) {
+            console.error('Error loading invoice:', error);
+            this.showToast('Fout bij laden factuur', 'error');
+        }
+    }
+    
+    showInvoiceModal(invoice) {
+        console.log('📋 Showing invoice modal for:', invoice.invoice_number);
+        
+        const modal = `
+            <div class="modal fade" id="invoiceModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-receipt"></i> Factuur ${invoice.invoice_number}
+                                <span class="badge ms-2 ${this.getInvoiceStatusBadgeClass(invoice.status)}">${this.getInvoiceStatusText(invoice.status)}</span>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">KLANTGEGEVENS</h6>
+                                    <p class="mb-1"><strong>${invoice.customer_name}</strong></p>
+                                    <p class="mb-1 text-muted">${invoice.customer_email || ''}</p>
+                                    <p class="mb-1 text-muted">${invoice.customer_phone || ''}</p>
+                                    ${invoice.address ? `<p class="mb-1 text-muted">${invoice.address}</p>` : ''}
+                                    ${invoice.city || invoice.postal_code ? `<p class="mb-3 text-muted">${invoice.postal_code || ''} ${invoice.city || ''}</p>` : '<div class="mb-3"></div>'}
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">FACTUURGEGEVENS</h6>
+                                    <p class="mb-1">Datum: <strong>${this.formatDate(invoice.created_at)}</strong></p>
+                                    <p class="mb-1">Vervaldatum: <strong>${invoice.due_date ? this.formatDate(invoice.due_date) : 'Niet opgegeven'}</strong></p>
+                                    ${invoice.paid_date ? `<p class="mb-1">Betaald op: <strong>${this.formatDate(invoice.paid_date)}</strong></p>` : ''}
+                                    ${invoice.payment_method ? `<p class="mb-1">Betaalmethode: <strong>${this.getPaymentMethodText(invoice.payment_method)}</strong></p>` : ''}
+                                    <p class="mb-3">${invoice.is_overdue ? '<span class="badge bg-danger">Achterstallig</span>' : ''}</p>
+                                </div>
+                            </div>
+                            
+                            ${invoice.description ? `
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">OMSCHRIJVING</h6>
+                                    <p>${invoice.description}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">SERVICES</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Service</th>
+                                                    <th>Omschrijving</th>
+                                                    <th class="text-end">Aantal</th>
+                                                    <th class="text-end">Prijs</th>
+                                                    <th class="text-end">Totaal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${invoice.items && invoice.items.length > 0 ? invoice.items.map(item => `
+                                                    <tr>
+                                                        <td><strong>${item.service_name || '-'}</strong></td>
+                                                        <td>${item.description || '-'}</td>
+                                                        <td class="text-end">${item.quantity || 0}</td>
+                                                        <td class="text-end">€${(parseFloat(item.unit_price) || 0).toFixed(2)}</td>
+                                                        <td class="text-end">€${(parseFloat(item.total_price) || 0).toFixed(2)}</td>
+                                                    </tr>
+                                                `).join('') : `
+                                                    <tr>
+                                                        <td colspan="5" class="text-center text-muted">Geen items gevonden</td>
+                                                    </tr>
+                                                `}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-8"></div>
+                                <div class="col-md-4">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td>Subtotaal:</td>
+                                            <td class="text-end">€${(parseFloat(invoice.subtotal) || 0).toFixed(2)}</td>
+                                        </tr>
+                                        ${parseFloat(invoice.discount_percentage) > 0 ? `
+                                        <tr>
+                                            <td>Korting (${invoice.discount_percentage}%):</td>
+                                            <td class="text-end text-success">-€${(parseFloat(invoice.discount_amount) || 0).toFixed(2)}</td>
+                                        </tr>
+                                        ` : ''}
+                                        <tr>
+                                            <td>BTW (${invoice.tax_percentage}%):</td>
+                                            <td class="text-end">€${(parseFloat(invoice.tax_amount) || 0).toFixed(2)}</td>
+                                        </tr>
+                                        <tr class="table-active">
+                                            <td><strong>Totaal:</strong></td>
+                                            <td class="text-end"><strong>€${(parseFloat(invoice.total_amount) || 0).toFixed(2)}</strong></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            ${invoice.notes ? `
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-muted">NOTITIES</h6>
+                                    <p class="text-muted">${invoice.notes}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                            <button type="button" class="btn btn-primary" onclick="if(window.adminApp) window.adminApp.editInvoice('${invoice.id}');">
+                                <i class="bi bi-pencil"></i> Bewerken
+                            </button>
+                            ${invoice.status !== 'paid' ? `
+                            <button type="button" class="btn btn-success" onclick="if(window.adminApp) window.adminApp.markInvoicePaid('${invoice.id}');">
+                                <i class="bi bi-check-circle"></i> Als Betaald Markeren
+                            </button>
+                            ` : ''}
+                            <button type="button" class="btn btn-info" onclick="if(window.adminApp) window.adminApp.viewInvoicePDF('${invoice.id}');">
+                                <i class="bi bi-file-pdf"></i> PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('invoiceModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body and show
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('invoiceModal'));
+        modalElement.show();
+    }
+    
+    getInvoiceStatusBadgeClass(status) {
+        switch(status) {
+            case 'draft': return 'bg-secondary';
+            case 'sent': return 'bg-primary';
+            case 'pending': return 'bg-warning';
+            case 'paid': return 'bg-success';
+            case 'overdue': return 'bg-danger';
+            case 'cancelled': return 'bg-dark';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    getPaymentMethodText(method) {
+        switch(method) {
+            case 'cash': return 'Contant';
+            case 'bank_transfer': return 'Bankoverschrijving';
+            case 'card': return 'Pinpas';
+            case 'ideal': return 'iDEAL';
+            default: return method;
+        }
+    }
+    
+    async markInvoicePaid(id) {
+        try {
+            const result = await this.apiCall('POST', `/api/invoices/${id}/mark-paid`, {
+                payment_method: 'bank_transfer',
+                paid_date: new Date().toISOString().split('T')[0]
+            });
+            
+            this.showToast(`Factuur ${result.invoice_number} gemarkeerd als betaald!`, 'success');
+            
+            // Close modal and refresh
+            const modalElement = bootstrap.Modal.getInstance(document.getElementById('invoiceModal'));
+            if (modalElement) modalElement.hide();
+            
+            this.loadInvoices();
+            
+        } catch (error) {
+            console.error('Error marking invoice as paid:', error);
+            this.showToast('Fout bij markeren als betaald', 'error');
+        }
     }
     
     async viewInvoicePDF(id) {
@@ -3956,7 +4149,7 @@ class AdminApp {
     
     async editInvoice(id) {
         console.log('✏️ Edit invoice:', id);
-        this.showToast(`Factuur ${id} bewerken komt binnenkort!`, 'info');
+        this.showToast('Factuur bewerken functionaliteit wordt momenteel ontwikkeld. Voor nu kun je via de API of direct in de database wijzigingen maken.', 'info');
     }
     
     async deleteInvoice(id) {
