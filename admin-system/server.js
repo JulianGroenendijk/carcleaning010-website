@@ -84,7 +84,7 @@ app.get('/admin', (req, res) => {
         }
         
         // Replace cache-buster with current timestamp
-        const cacheBustedHTML = data.replace(/admin\.js\?v=\d+/, `admin.js?v=${Date.now()}`);
+        const cacheBustedHTML = data.replace(/admin\.js\?v=CACHE_BUSTER_TIMESTAMP/, `admin.js?v=${Date.now()}`);
         
         res.setHeader('Content-Type', 'text/html');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
