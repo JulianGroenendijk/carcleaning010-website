@@ -142,6 +142,9 @@ app.use('/api/leads', verifyToken, require('./routes/leads'));
 app.use('/api/dashboard', verifyToken, require('./routes/dashboard'));
 app.use('/api/pdf', verifyToken, require('./routes/pdf'));
 app.use('/api/settings', verifyToken, require('./routes/settings'));
+app.use('/api/expenses', verifyToken, require('./routes/expenses'));
+app.use('/api/suppliers', verifyToken, require('./routes/suppliers'));
+app.use('/api/reports', verifyToken, require('./routes/reports'));
 
 // Website lead endpoint (zonder auth voor website formulier)
 app.use('/api/website-leads', require('./routes/websiteLeads'));

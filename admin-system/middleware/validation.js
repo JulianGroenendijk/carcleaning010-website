@@ -270,6 +270,80 @@ const validateFileUpload = (req, res, next) => {
     next();
 };
 
+// Expense validatie rules
+const validateExpense = [
+    body('description')
+        .trim()
+        .isLength({ min: 1, max: 255 })
+        .withMessage('Beschrijving is verplicht (max 255 tekens)'),
+    body('amount')
+        .isFloat({ min: 0.01 })
+        .withMessage('Bedrag moet positief zijn'),
+    body('category')
+        .trim()
+        .isLength({ min: 1, max: 100 })
+        .withMessage('Categorie is verplicht (max 100 tekens)'),
+    body('expense_date')
+        .isISO8601()
+        .toDate()
+        .withMessage('Geldige uitgavedatum is verplicht'),
+    body('supplier_id')
+        .optional()
+        .isUUID()
+        .withMessage('Geldige leverancier ID'),
+    body('vat_amount')
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage('BTW bedrag moet 0 of hoger zijn'),
+    body('status')
+        .optional()
+        .isIn(['pending', 'approved', 'rejected'])
+        .withMessage('Ongeldige status'),
+    handleValidationErrors
+];
+
+// Supplier validatie rules
+const validateSupplier = [
+    body('name')
+        .trim()
+        .isLength({ min: 1, max: 200 })
+        .withMessage('Naam is verplicht (max 200 tekens)'),
+    body('email')
+        .isEmail()
+        .withMessage('Geldig email adres is verplicht')
+        .normalizeEmail(),
+    body('phone')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ max: 50 })
+        .withMessage('Telefoonnummer mag maximaal 50 tekens zijn'),
+    body('address')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ max: 255 })
+        .withMessage('Adres mag maximaal 255 tekens zijn'),
+    body('city')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ max: 100 })
+        .withMessage('Stad mag maximaal 100 tekens zijn'),
+    body('postal_code')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ max: 20 })
+        .withMessage('Postcode mag maximaal 20 tekens zijn'),
+    body('vat_number')
+        .optional({ checkFalsy: true })
+        .trim()
+        .matches(/^[A-Z]{2}[0-9A-Z]+$/)
+        .withMessage('Geldig BTW nummer (bijv. NL123456789B01)'),
+    body('payment_terms')
+        .optional()
+        .isInt({ min: 0, max: 365 })
+        .withMessage('Betalingstermijn moet tussen 0 en 365 dagen zijn'),
+    handleValidationErrors
+];
+
 module.exports = {
     handleValidationErrors,
     validateCustomer,
@@ -279,6 +353,8 @@ module.exports = {
     validateCertificate,
     validateAppointment,
     validateLead,
+    validateExpense,
+    validateSupplier,
     validateUUID,
     validatePagination,
     validateSearch,

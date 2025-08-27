@@ -2249,33 +2249,13 @@ class AdminApp {
         `;
         
         try {
-            // Mock data - later replace with API call
-            const expenses = [
-                {
-                    id: 1,
-                    expense_number: 'EXP-2025-001',
-                    supplier_id: 1,
-                    supplier_name: 'AutoWas Supplies B.V.',
-                    description: 'Professionele shampoo en was middelen',
-                    amount: 245.50,
-                    category: 'materials',
-                    date: '2025-01-15',
-                    status: 'paid',
-                    invoice_number: 'INV-12345'
-                },
-                {
-                    id: 2,
-                    expense_number: 'EXP-2025-002',
-                    supplier_id: 2,
-                    supplier_name: 'TechClean Equipment',
-                    description: 'Hogedruk reiniger onderdelen',
-                    amount: 89.95,
-                    category: 'equipment',
-                    date: '2025-01-20',
-                    status: 'pending',
-                    invoice_number: 'TC-7890'
-                }
-            ];
+            // Fetch expenses from API
+            const response = await this.apiCall('GET', '/api/expenses?limit=50');
+            const expenses = response.expenses || [];
+            
+            // Fetch summary data
+            const summaryResponse = await this.apiCall('GET', '/api/expenses/meta/summary');
+            const summary = summaryResponse.summary || {};
             
             // Build expenses interface
             section.innerHTML = `
@@ -2292,7 +2272,7 @@ class AdminApp {
                         <div class="card bg-danger text-white">
                             <div class="card-body">
                                 <h5 class="card-title">Deze Maand</h5>
-                                <h2>€${expenses.reduce((sum, exp) => sum + exp.amount, 0).toFixed(2)}</h2>
+                                <h2>€${summary.total_amount ? parseFloat(summary.total_amount).toFixed(2) : '0.00'}</h2>
                                 <small>Totale uitgaven</small>
                             </div>
                         </div>
@@ -2301,7 +2281,7 @@ class AdminApp {
                         <div class="card bg-warning text-dark">
                             <div class="card-body">
                                 <h5 class="card-title">Open</h5>
-                                <h2>${expenses.filter(e => e.status === 'pending').length}</h2>
+                                <h2>${summary.pending_count || 0}</h2>
                                 <small>Openstaande facturen</small>
                             </div>
                         </div>
@@ -2356,31 +2336,38 @@ class AdminApp {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${expenses.map(expense => `
+                                    ${expenses.length > 0 ? expenses.map(expense => `
                                         <tr>
-                                            <td><strong>${expense.expense_number}</strong></td>
-                                            <td>${expense.supplier_name}</td>
+                                            <td><strong>${expense.receipt_number || 'N/A'}</strong></td>
+                                            <td>${expense.supplier_name || 'Geen leverancier'}</td>
                                             <td>${expense.description}</td>
                                             <td><span class="badge bg-secondary">${this.getCategoryText(expense.category)}</span></td>
-                                            <td class="text-currency">€${expense.amount.toFixed(2)}</td>
-                                            <td>${this.formatDate(expense.date)}</td>
+                                            <td class="text-currency">€${parseFloat(expense.amount).toFixed(2)}</td>
+                                            <td>${this.formatDate(expense.expense_date)}</td>
                                             <td>
-                                                <span class="badge bg-${expense.status === 'paid' ? 'success' : expense.status === 'pending' ? 'warning' : 'danger'}">
+                                                <span class="badge bg-${expense.status === 'approved' ? 'success' : expense.status === 'pending' ? 'warning' : 'danger'}">
                                                     ${this.getExpenseStatusText(expense.status)}
                                                 </span>
                                             </td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary" onclick="if(window.adminApp) window.adminApp.viewExpense(${expense.id});" title="Bekijken">
+                                                    <button class="btn btn-outline-primary" onclick="if(window.adminApp) window.adminApp.viewExpense('${expense.id}');" title="Bekijken">
                                                         <i class="bi bi-eye"></i>
                                                     </button>
-                                                    <button class="btn btn-outline-success" onclick="if(window.adminApp) window.adminApp.editExpense(${expense.id});" title="Bewerken">
+                                                    <button class="btn btn-outline-success" onclick="if(window.adminApp) window.adminApp.editExpense('${expense.id}');" title="Bewerken">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
-                                    `).join('')}
+                                    `).join('') : `
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">
+                                                <i class="bi bi-receipt fs-1 mb-2 d-block"></i>
+                                                Geen uitgaven gevonden
+                                            </td>
+                                        </tr>
+                                    `}
                                 </tbody>
                             </table>
                         </div>
@@ -2416,8 +2403,8 @@ class AdminApp {
     getExpenseStatusText(status) {
         const statuses = {
             'pending': 'Openstaand',
-            'paid': 'Betaald',
-            'overdue': 'Vervallen'
+            'approved': 'Goedgekeurd',
+            'rejected': 'Afgekeurd'
         };
         return statuses[status] || status;
     }
@@ -2467,31 +2454,9 @@ class AdminApp {
         `;
         
         try {
-            // Mock suppliers data
-            const suppliers = [
-                {
-                    id: 1,
-                    name: 'AutoWas Supplies B.V.',
-                    contact_person: 'Jan Jansen',
-                    email: 'jan@autowasx.nl',
-                    phone: '+31201234567',
-                    address: 'Industrieweg 123, 1000AB Amsterdam',
-                    category: 'materials',
-                    status: 'active',
-                    total_spent: 2450.50
-                },
-                {
-                    id: 2,
-                    name: 'TechClean Equipment',
-                    contact_person: 'Sarah de Vries',
-                    email: 'sarah@techclean.com',
-                    phone: '+31301234567',
-                    address: 'Technopark 45, 3000CD Utrecht',
-                    category: 'equipment',
-                    status: 'active',
-                    total_spent: 890.95
-                }
-            ];
+            // Fetch suppliers from API
+            const response = await this.apiCall('GET', '/api/suppliers?limit=50');
+            const suppliers = response.suppliers || [];
             
             section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -2516,35 +2481,44 @@ class AdminApp {
                 </div>
                 
                 <div class="row">
-                    ${suppliers.map(supplier => `
+                    ${suppliers.length > 0 ? suppliers.map(supplier => `
                         <div class="col-md-6 mb-4">
                             <div class="card">
                                 <div class="card-header d-flex justify-content-between align-items-center">
                                     <h5 class="card-title mb-0">${supplier.name}</h5>
-                                    <span class="badge bg-${supplier.status === 'active' ? 'success' : 'secondary'}">${supplier.status === 'active' ? 'Actief' : 'Inactief'}</span>
+                                    <span class="badge bg-${supplier.active ? 'success' : 'secondary'}">${supplier.active ? 'Actief' : 'Inactief'}</span>
                                 </div>
                                 <div class="card-body">
                                     <p class="card-text">
-                                        <strong>Contact:</strong> ${supplier.contact_person}<br>
-                                        <strong>Email:</strong> ${supplier.email}<br>
-                                        <strong>Telefoon:</strong> ${supplier.phone}<br>
-                                        <strong>Categorie:</strong> ${this.getCategoryText(supplier.category)}
+                                        <strong>Contact:</strong> ${supplier.contact_person || 'N/A'}<br>
+                                        <strong>Email:</strong> ${supplier.email || 'N/A'}<br>
+                                        <strong>Telefoon:</strong> ${supplier.phone || 'N/A'}<br>
+                                        <strong>Stad:</strong> ${supplier.city || 'N/A'}
                                     </p>
                                     <p class="text-muted">
-                                        <small>Totaal besteed: <strong>€${supplier.total_spent.toFixed(2)}</strong></small>
+                                        <small>Uitgaven: <strong>€${parseFloat(supplier.total_spent || 0).toFixed(2)}</strong></small>
                                     </p>
                                     <div class="btn-group">
-                                        <button class="btn btn-outline-primary btn-sm" onclick="if(window.adminApp) window.adminApp.viewSupplier(${supplier.id});">
+                                        <button class="btn btn-outline-primary btn-sm" onclick="if(window.adminApp) window.adminApp.viewSupplier('${supplier.id}');">
                                             <i class="bi bi-eye"></i> Bekijken
                                         </button>
-                                        <button class="btn btn-outline-success btn-sm" onclick="if(window.adminApp) window.adminApp.editSupplier(${supplier.id});">
+                                        <button class="btn btn-outline-success btn-sm" onclick="if(window.adminApp) window.adminApp.editSupplier('${supplier.id}');">
                                             <i class="bi bi-pencil"></i> Bewerken
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    `).join('')}
+                    `).join('') : `
+                        <div class="col-12">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-truck fs-1 mb-2 d-block"></i>
+                                Geen leveranciers gevonden
+                                <br>
+                                <small>Voeg je eerste leverancier toe om te beginnen</small>
+                            </div>
+                        </div>
+                    `}
                 </div>
             `;
             
@@ -2578,81 +2552,149 @@ class AdminApp {
     async loadReports() {
         const section = document.getElementById('reports-section');
         
+        // Show loading state first
         section.innerHTML = `
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="bi bi-bar-chart text-warning"></i> Financiële Rapportages</h1>
             </div>
-            
-            <!-- Report Cards -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card bg-success text-white">
-                        <div class="card-body">
-                            <h5>Inkomsten</h5>
-                            <h2>€3,240</h2>
-                            <small>Deze maand</small>
-                        </div>
-                    </div>
+            <div class="text-center py-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Laden...</span>
                 </div>
-                <div class="col-md-3">
-                    <div class="card bg-danger text-white">
-                        <div class="card-body">
-                            <h5>Uitgaven</h5>
-                            <h2>€835</h2>
-                            <small>Deze maand</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-primary text-white">
-                        <div class="card-body">
-                            <h5>Netto Winst</h5>
-                            <h2>€2,405</h2>
-                            <small>Deze maand</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-warning text-dark">
-                        <div class="card-body">
-                            <h5>BTW Te Betalen</h5>
-                            <h2>€680</h2>
-                            <small>Q1 2025</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Report Options -->
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="bi bi-graph-up"></i> Inkomsten vs Uitgaven</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-muted">Overzicht van maandelijkse inkomsten en uitgaven</p>
-                            <button class="btn btn-outline-primary">
-                                <i class="bi bi-file-pdf"></i> Genereer Rapport
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="bi bi-receipt"></i> BTW Rapportage</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-muted">Kwartaal overzicht voor BTW aangifte</p>
-                            <button class="btn btn-outline-success">
-                                <i class="bi bi-file-excel"></i> Export Excel
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <p class="text-muted mt-2">Rapporten worden geladen...</p>
             </div>
         `;
+        
+        try {
+            // Fetch financial overview from API
+            const currentDate = new Date();
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            
+            const response = await this.apiCall('GET', `/api/reports/financial-overview?year=${year}&month=${month}`);
+            const overview = response.summary || {};
+            
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-bar-chart text-warning"></i> Financiële Rapportages</h1>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary" id="refresh-reports">
+                            <i class="bi bi-arrow-clockwise"></i> Verversen
+                        </button>
+                        <button class="btn btn-primary" id="export-reports">
+                            <i class="bi bi-download"></i> Exporteren
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Report Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h5>Inkomsten</h5>
+                                <h2>€${parseFloat(overview.total_revenue || 0).toFixed(2)}</h2>
+                                <small>Deze maand</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body">
+                                <h5>Uitgaven</h5>
+                                <h2>€${parseFloat(overview.total_expenses || 0).toFixed(2)}</h2>
+                                <small>Deze maand</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <h5>Netto Winst</h5>
+                                <h2>€${parseFloat(overview.profit || 0).toFixed(2)}</h2>
+                                <small>Marge: ${parseFloat(overview.profit_margin || 0).toFixed(1)}%</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body">
+                                <h5>BTW Saldo</h5>
+                                <h2>€${parseFloat(overview.vat_balance || 0).toFixed(2)}</h2>
+                                <small>Te betalen/ontvangen</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Report Options -->
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-graph-up"></i> Inkomsten vs Uitgaven</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Overzicht van maandelijkse inkomsten en uitgaven voor ${year}</p>
+                                <button class="btn btn-outline-primary" onclick="if(window.adminApp) window.adminApp.generateFinancialReport('${year}');">
+                                    <i class="bi bi-file-pdf"></i> Genereer Rapport
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-receipt"></i> BTW Rapportage</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Kwartaal overzicht voor BTW aangifte Q${Math.ceil(month/3)} ${year}</p>
+                                <button class="btn btn-outline-success" onclick="if(window.adminApp) window.adminApp.generateVATReport('${year}', '${Math.ceil(month/3)}');">
+                                    <i class="bi bi-file-excel"></i> Export BTW
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-pie-chart"></i> Uitgaven per Categorie</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Gedetailleerd overzicht van uitgaven per categorie</p>
+                                <button class="btn btn-outline-info" onclick="if(window.adminApp) window.adminApp.showExpensesByCategory('${year}', '${month}');">
+                                    <i class="bi bi-eye"></i> Bekijk Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-person-check"></i> Klant Omzet</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Top klanten op basis van gegenereerde omzet</p>
+                                <button class="btn btn-outline-warning" onclick="if(window.adminApp) window.adminApp.showCustomerRevenue('${year}');">
+                                    <i class="bi bi-list-ol"></i> Top Klanten
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.setupReportsEventListeners();
+            
+        } catch (error) {
+            console.error('Error loading reports:', error);
+            section.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Fout bij het laden van rapporten: ${error.message}
+                </div>
+            `;
+        }
     }
 
     // System Settings
@@ -4759,6 +4801,67 @@ class AdminApp {
             console.error('Error deleting customer:', error);
             this.showToast('Fout bij verwijderen klant', 'error');
         }
+    }
+
+    // New expense/supplier/report functions
+    setupReportsEventListeners() {
+        const refreshBtn = document.getElementById('refresh-reports');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.loadReports());
+        }
+    }
+
+    async generateFinancialReport(year) {
+        try {
+            this.showToast('Rapport wordt gegenereerd...', 'info');
+            window.open(`${this.baseURL}/api/reports/export/invoices?year=${year}&format=csv`, '_blank');
+        } catch (error) {
+            this.showToast('Fout bij genereren rapport', 'error');
+        }
+    }
+
+    async generateVATReport(year, quarter) {
+        try {
+            this.showToast('BTW rapport wordt gegenereerd...', 'info');
+            const response = await this.apiCall('GET', `/api/reports/vat-report?year=${year}&quarter=${quarter}`);
+            // Show in modal or download
+            this.showToast('BTW rapport beschikbaar', 'success');
+        } catch (error) {
+            this.showToast('Fout bij genereren BTW rapport', 'error');
+        }
+    }
+
+    async showExpensesByCategory(year, month) {
+        try {
+            const response = await this.apiCall('GET', `/api/reports/expenses-by-category?year=${year}&month=${month}`);
+            // Show expenses breakdown in modal
+            this.showToast(`Uitgaven per categorie voor ${month}/${year}`, 'info');
+        } catch (error) {
+            this.showToast('Fout bij ophalen uitgaven per categorie', 'error');
+        }
+    }
+
+    async showCustomerRevenue(year) {
+        try {
+            const response = await this.apiCall('GET', `/api/reports/customer-revenue?year=${year}`);
+            // Show top customers in modal  
+            this.showToast(`Top klanten voor ${year}`, 'info');
+        } catch (error) {
+            this.showToast('Fout bij ophalen klant omzet', 'error');
+        }
+    }
+
+    // Placeholder functions for expenses
+    showAddExpenseModal() {
+        this.showToast('Nieuwe uitgave functionaliteit komt binnenkort!', 'info');
+    }
+
+    viewExpense(id) {
+        this.showToast(`Uitgave ${id} bekijken komt binnenkort!`, 'info');
+    }
+
+    editExpense(id) {
+        this.showToast(`Uitgave ${id} bewerken komt binnenkort!`, 'info');
     }
 }
 
