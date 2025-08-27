@@ -507,8 +507,32 @@ class AdminApp {
         `;
         
         try {
-            // Fetch quotes from API
-            const response = await fetch(this.baseURL + '/api/quotes', {
+            // Get filter values for quotes
+            const searchInput = document.getElementById('quote-search');
+            const statusFilter = document.getElementById('quote-status-filter');
+            const sortFilter = document.getElementById('quote-sort-filter');
+            
+            let queryParams = new URLSearchParams();
+            
+            if (searchInput && searchInput.value.trim()) {
+                queryParams.append('search', searchInput.value.trim());
+            }
+            
+            if (statusFilter && statusFilter.value) {
+                queryParams.append('status', statusFilter.value);
+            }
+            
+            if (sortFilter && sortFilter.value) {
+                const [sort_by, sort_order] = sortFilter.value.split('-');
+                queryParams.append('sort_by', sort_by);
+                queryParams.append('sort_order', sort_order);
+            }
+            
+            // Fetch quotes from API with filters
+            const url = `${this.baseURL}/api/quotes${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            console.log('🔍 Loading quotes with filters:', url);
+            
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
@@ -715,8 +739,8 @@ class AdminApp {
     }
     
     filterQuotes() {
-        console.log('🔍 Quote filtering would happen here');
-        this.showToast('Filter functionaliteit komt binnenkort!', 'info');
+        console.log('🔍 Filtering quotes...');
+        this.loadQuotes();
     }
     
     async viewQuote(id) {
@@ -733,12 +757,122 @@ class AdminApp {
             }
             
             const quote = await response.json();
-            this.showQuoteModal(quote, 'view');
+            this.showQuoteDetailsModal(quote);
             
         } catch (error) {
             console.error('Error fetching quote:', error);
             this.showToast(`Fout bij het ophalen van offerte #${id}: ${error.message}`, 'error');
         }
+    }
+    
+    showQuoteDetailsModal(quote) {
+        console.log('📄 Showing quote details modal for:', quote.quote_number);
+        
+        const modal = `
+            <div class="modal fade" id="quoteDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-file-text"></i> Offerte ${quote.quote_number || quote.id}
+                                <span class="badge ms-2 ${this.getQuoteStatusBadgeClass(quote.status)}">${this.getQuoteStatusText(quote.status)}</span>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">KLANTGEGEVENS</h6>
+                                    <p class="mb-1"><strong>${quote.customer_name || 'Onbekend'}</strong></p>
+                                    <p class="mb-1 text-muted">${quote.customer_email || ''}</p>
+                                    <p class="mb-3 text-muted">${quote.customer_phone || ''}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">OFFERTE GEGEVENS</h6>
+                                    <p class="mb-1">Datum: <strong>${this.formatDate(quote.created_at)}</strong></p>
+                                    <p class="mb-1">Geldig tot: <strong>${quote.valid_until ? this.formatDate(quote.valid_until) : 'Niet opgegeven'}</strong></p>
+                                    <p class="mb-3">Status: <span class="badge ${this.getQuoteStatusBadgeClass(quote.status)}">${this.getQuoteStatusText(quote.status)}</span></p>
+                                </div>
+                            </div>
+                            
+                            ${quote.description ? `
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">OMSCHRIJVING</h6>
+                                    <p>${quote.description}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-muted">TOTAAL BEDRAG</h6>
+                                    <h3 class="text-success">€${(parseFloat(quote.amount || quote.total_amount) || 0).toFixed(2)}</h3>
+                                </div>
+                            </div>
+                            
+                            ${quote.notes ? `
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-muted">NOTITIES</h6>
+                                    <p class="text-muted">${quote.notes}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                            <button type="button" class="btn btn-primary" onclick="if(window.adminApp) window.adminApp.editQuote('${quote.id}');">
+                                <i class="bi bi-pencil"></i> Bewerken
+                            </button>
+                            ${quote.status === 'sent' || quote.status === 'approved' ? `
+                            <button type="button" class="btn btn-success" onclick="if(window.adminApp) window.adminApp.convertQuoteToInvoice('${quote.id}');">
+                                <i class="bi bi-receipt"></i> Naar Factuur
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('quoteDetailsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body and show
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('quoteDetailsModal'));
+        modalElement.show();
+    }
+    
+    getQuoteStatusBadgeClass(status) {
+        switch(status) {
+            case 'draft': return 'bg-secondary';
+            case 'sent': return 'bg-primary';
+            case 'approved': return 'bg-success';
+            case 'rejected': return 'bg-danger';
+            case 'expired': return 'bg-warning';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    getQuoteStatusText(status) {
+        switch(status) {
+            case 'draft': return 'Concept';
+            case 'sent': return 'Verzonden';
+            case 'approved': return 'Goedgekeurd';
+            case 'rejected': return 'Afgewezen';
+            case 'expired': return 'Verlopen';
+            default: status || 'Onbekend';
+        }
+    }
+    
+    convertQuoteToInvoice(quoteId) {
+        console.log('📄➡️📋 Converting quote to invoice:', quoteId);
+        this.showToast('Offerte naar factuur conversie komt binnenkort!', 'info');
     }
     
     async editQuote(id) {
