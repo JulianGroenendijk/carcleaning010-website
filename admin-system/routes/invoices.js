@@ -200,7 +200,7 @@ router.post('/', validateInvoice, async (req, res) => {
             const invoiceResult = await client.query(`
                 INSERT INTO invoices (
                     customer_id, quote_id, invoice_number, description, 
-                    subtotal_amount, discount_percentage, discount_amount,
+                    subtotal, discount_percentage, discount_amount,
                     tax_percentage, tax_amount, total_amount, due_date, notes
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING *
@@ -284,7 +284,7 @@ router.put('/:id', validateInvoice, async (req, res) => {
             const invoiceResult = await client.query(`
                 UPDATE invoices SET
                     customer_id = $1, quote_id = $2, description = $3,
-                    subtotal_amount = $4, discount_percentage = $5, discount_amount = $6,
+                    subtotal = $4, discount_percentage = $5, discount_amount = $6,
                     tax_percentage = $7, tax_amount = $8, total_amount = $9,
                     due_date = $10, status = COALESCE($11, status),
                     notes = $12, paid_date = $13,
