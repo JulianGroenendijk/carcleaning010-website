@@ -4208,10 +4208,15 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error creating customer:', error);
+            console.log('Error details:', error.details || 'No details available');
             
             // Handle specific error messages
             if (error.message && error.message.includes('email adres bestaat al')) {
                 this.showToast('Dit e-mailadres is al in gebruik door een andere klant', 'error');
+            } else if (error.message === 'Validatie fouten' && error.details) {
+                // Show specific validation errors
+                const errorMessages = error.details.map(detail => detail.msg || detail).join(', ');
+                this.showToast('Validatie fouten: ' + errorMessages, 'error');
             } else {
                 this.showToast('Fout bij aanmaken klant: ' + (error.message || 'Onbekende fout'), 'error');
             }

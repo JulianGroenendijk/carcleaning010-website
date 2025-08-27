@@ -32,8 +32,14 @@ const validateCustomer = [
         .withMessage('Achternaam is verplicht (max 100 tekens)'),
     body('phone')
         .optional()
-        .isMobilePhone('nl-NL')
-        .withMessage('Geldig Nederlands telefoonnummer'),
+        .trim()
+        .isLength({ min: 1, max: 50 })
+        .withMessage('Telefoonnummer mag maximaal 50 tekens zijn'),
+    body('address')
+        .optional()
+        .trim()
+        .isLength({ max: 255 })
+        .withMessage('Adres mag maximaal 255 tekens zijn'),
     body('city')
         .optional()
         .trim()
@@ -41,8 +47,14 @@ const validateCustomer = [
         .withMessage('Stad mag maximaal 100 tekens zijn'),
     body('postal_code')
         .optional()
-        .matches(/^[1-9][0-9]{3}\s?[A-Z]{2}$/i)
-        .withMessage('Geldig Nederlandse postcode (1234AB formaat)'),
+        .trim()
+        .isLength({ min: 1, max: 20 })
+        .withMessage('Postcode mag maximaal 20 tekens zijn'),
+    body('notes')
+        .optional()
+        .trim()
+        .isLength({ max: 1000 })
+        .withMessage('Notities mogen maximaal 1000 tekens zijn'),
     handleValidationErrors
 ];
 
