@@ -219,27 +219,27 @@ router.post('/', validateAppointment, async (req, res) => {
     try {
         const {
             customer_id,
+            vehicle_id,
             quote_id,
-            scheduled_date,
-            estimated_duration,
-            service_type,
-            service_description,
-            location_type = 'business',
-            location_address,
-            notes,
-            reminder_sent = false
+            appointment_date,
+            start_time,
+            end_time,
+            status = 'scheduled',
+            location,
+            notes
         } = req.body;
 
-        // Check voor conflicterende afspraken
+        // Check voor conflicterende afspraken op dezelfde datum
         const conflictCheck = await query(`
             SELECT id FROM appointments 
-            WHERE status NOT IN ('cancelled', 'completed') 
-            AND scheduled_date <= $1 
-            AND (scheduled_date + INTERVAL '1 minute' * estimated_duration) > $2
-        `, [
-            new Date(new Date(scheduled_date).getTime() + estimated_duration * 60000).toISOString(),
-            scheduled_date
-        ]);
+            WHERE status NOT IN ('cancelled') 
+            AND appointment_date = $1 
+            AND (
+                (start_time <= $2 AND end_time > $2) OR
+                (start_time < $3 AND end_time >= $3) OR
+                (start_time >= $2 AND end_time <= $3)
+            )
+        `, [appointment_date, start_time, end_time]);
 
         if (conflictCheck.rows.length > 0) {
             return res.status(409).json({
@@ -250,15 +250,13 @@ router.post('/', validateAppointment, async (req, res) => {
 
         const result = await query(`
             INSERT INTO appointments (
-                customer_id, quote_id, scheduled_date, estimated_duration,
-                service_type, service_description, location_type, 
-                location_address, notes, reminder_sent
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                customer_id, vehicle_id, quote_id, appointment_date, 
+                start_time, end_time, status, location, notes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `, [
-            customer_id, quote_id, scheduled_date, estimated_duration,
-            service_type, service_description, location_type,
-            location_address, notes, reminder_sent
+            customer_id, vehicle_id || null, quote_id || null, appointment_date,
+            start_time, end_time, status, location || null, notes || null
         ]);
 
         // Haal volledige afspraak gegevens op

@@ -1644,10 +1644,209 @@ class AdminApp {
         }
     }
 
-    showAddAppointmentModal() {
-        console.log('➕ Add appointment modal');
-        // TODO: Implement add appointment modal
-        alert('Afspraak toevoegen functionaliteit wordt nog geïmplementeerd');
+    async showAddAppointmentModal() {
+        console.log('➕ Opening add appointment modal');
+        
+        try {
+            // Fetch customers for dropdown
+            const customers = await this.apiCall('GET', '/api/customers?limit=1000');
+            
+            // Create modal HTML
+            const modalHTML = `
+                <div class="modal fade" id="addAppointmentModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-calendar-plus text-success"></i> Nieuwe Afspraak
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="addAppointmentForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="appointmentCustomer" class="form-label">Klant *</label>
+                                                <select class="form-select" id="appointmentCustomer" required>
+                                                    <option value="">Selecteer klant...</option>
+                                                    ${customers.customers.map(customer => 
+                                                        `<option value="${customer.id}">${customer.first_name} ${customer.last_name} - ${customer.email}</option>`
+                                                    ).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="appointmentDate" class="form-label">Datum *</label>
+                                                <input type="date" class="form-control" id="appointmentDate" required 
+                                                       min="${new Date().toISOString().split('T')[0]}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="appointmentStartTime" class="form-label">Start Tijd *</label>
+                                                <input type="time" class="form-control" id="appointmentStartTime" required value="09:00">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="appointmentEndTime" class="form-label">Eind Tijd *</label>
+                                                <input type="time" class="form-control" id="appointmentEndTime" required value="12:00">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="appointmentStatus" class="form-label">Status</label>
+                                                <select class="form-select" id="appointmentStatus">
+                                                    <option value="scheduled">Gepland</option>
+                                                    <option value="confirmed">Bevestigd</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="appointmentLocation" class="form-label">Locatie</label>
+                                                <input type="text" class="form-control" id="appointmentLocation" 
+                                                       placeholder="Bijv. Thuis bij klant, Bedrijfspand, etc.">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="appointmentNotes" class="form-label">Notities</label>
+                                        <textarea class="form-control" id="appointmentNotes" rows="3" 
+                                                  placeholder="Aanvullende informatie over de afspraak..."></textarea>
+                                    </div>
+                                    
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i>
+                                        <strong>Tip:</strong> Het systeem controleert automatisch op conflicterende afspraken.
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x"></i> Annuleren
+                                </button>
+                                <button type="button" class="btn btn-success" id="saveAppointmentBtn">
+                                    <i class="bi bi-check"></i> Afspraak Aanmaken
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('addAppointmentModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // Setup event listeners
+            document.getElementById('saveAppointmentBtn').addEventListener('click', () => {
+                this.saveAppointment();
+            });
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('addAppointmentModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error showing add appointment modal:', error);
+            this.showToast('Fout bij laden formulier: ' + error.message, 'error');
+        }
+    }
+
+    async saveAppointment() {
+        console.log('💾 Saving appointment...');
+        
+        // Get form elements
+        const customer_id = document.getElementById('appointmentCustomer').value;
+        const appointment_date = document.getElementById('appointmentDate').value;
+        const start_time = document.getElementById('appointmentStartTime').value;
+        const end_time = document.getElementById('appointmentEndTime').value;
+        const status = document.getElementById('appointmentStatus').value;
+        const location = document.getElementById('appointmentLocation').value;
+        const notes = document.getElementById('appointmentNotes').value;
+        
+        // Validate required fields
+        if (!customer_id) {
+            this.showToast('Selecteer een klant', 'error');
+            return;
+        }
+        
+        if (!appointment_date) {
+            this.showToast('Voer een datum in', 'error');
+            return;
+        }
+        
+        if (!start_time || !end_time) {
+            this.showToast('Voer start en eind tijd in', 'error');
+            return;
+        }
+        
+        if (start_time >= end_time) {
+            this.showToast('Eind tijd moet na start tijd zijn', 'error');
+            return;
+        }
+        
+        // Disable save button and show loading
+        const saveBtn = document.getElementById('saveAppointmentBtn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Opslaan...';
+        
+        try {
+            // Create appointment data
+            const appointmentData = {
+                customer_id,
+                appointment_date,
+                start_time,
+                end_time,
+                status,
+                location: location || null,
+                notes: notes || null
+            };
+            
+            console.log('📝 Appointment data:', appointmentData);
+            
+            // Submit to API
+            const result = await this.apiCall('POST', '/api/appointments', appointmentData);
+            console.log('✅ Appointment created:', result);
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addAppointmentModal'));
+            modal.hide();
+            
+            // Show success message
+            this.showToast('Afspraak succesvol aangemaakt!', 'success');
+            
+            // Reload appointments
+            await this.loadAppointments();
+            
+        } catch (error) {
+            console.error('❌ Error creating appointment:', error);
+            if (error.message.includes('Er bestaat al een afspraak')) {
+                this.showToast('Er bestaat al een afspraak op dit tijdstip', 'error');
+            } else {
+                this.showToast('Fout bij aanmaken afspraak: ' + error.message, 'error');
+            }
+        } finally {
+            // Re-enable save button
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
     }
 
     renderPagination(pagination) {
