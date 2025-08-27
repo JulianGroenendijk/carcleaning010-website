@@ -2996,14 +2996,20 @@ class AdminApp {
                     // Updates available
                     versionBadge.className = 'badge bg-warning text-dark me-2';
                     
-                    // Update deploy button to show update availability
+                    // Enable deploy button for update
                     deployBtn.innerHTML = '<i class="bi bi-download text-white me-1"></i> Update Beschikbaar';
                     deployBtn.className = 'btn btn-warning';
-                    deployBtn.title = `Update naar ${data.remote.commit}`;
+                    deployBtn.disabled = false;
+                    deployBtn.title = `Update van v${data.local.version} naar ${data.remote.commit}`;
                     
                     // Show current version and that update is available
-                    checkBtn.innerHTML = `<i class="bi bi-exclamation-triangle text-white me-1"></i> v${data.local.version} → Update!`;
+                    checkBtn.innerHTML = `<i class="bi bi-exclamation-triangle text-white me-1"></i> v${data.local.version} → Update Klaar!`;
                     checkBtn.className = 'btn btn-sm btn-warning';
+                    
+                    // Show update available message
+                    setTimeout(() => {
+                        this.showToast(`🆕 Update beschikbaar! Van v${data.local.version} naar nieuwere versie.`, 'warning');
+                    }, 500);
                     
                     setTimeout(() => {
                         checkBtn.innerHTML = originalHtml;
@@ -3015,16 +3021,34 @@ class AdminApp {
                     // Up to date or using old endpoint
                     versionBadge.className = 'badge bg-success me-2';
                     
-                    // Reset deploy button to normal state
-                    deployBtn.innerHTML = '<i class="bi bi-arrow-clockwise text-white me-1"></i> Deploy';
-                    deployBtn.className = 'btn btn-success';
-                    deployBtn.title = isNewEndpoint ? 'Systeem is up-to-date' : 'Deploy beschikbaar';
-                    
-                    // Show current version and status
-                    const version = isNewEndpoint ? data.local.version : data.version;
-                    const statusText = isNewEndpoint ? '- Actueel' : '- Geladen';
-                    checkBtn.innerHTML = `<i class="bi bi-check-circle text-white me-1"></i> v${version} ${statusText}`;
-                    checkBtn.className = 'btn btn-sm btn-success';
+                    if (isNewEndpoint) {
+                        // New endpoint - system is up to date, disable deploy button
+                        deployBtn.innerHTML = '<i class="bi bi-check-circle text-white me-1"></i> Up-to-date';
+                        deployBtn.className = 'btn btn-secondary';
+                        deployBtn.disabled = true;
+                        deployBtn.title = 'Systeem is al actueel - geen deployment nodig';
+                        
+                        // Show up-to-date status
+                        const version = data.local.version;
+                        checkBtn.innerHTML = `<i class="bi bi-check-circle text-white me-1"></i> v${version} - Systeem Actueel`;
+                        checkBtn.className = 'btn btn-sm btn-success';
+                        
+                        // Show success message in the UI
+                        setTimeout(() => {
+                            this.showToast('✅ Systeem is volledig up-to-date! Geen deployment nodig.', 'success');
+                        }, 500);
+                        
+                    } else {
+                        // Old endpoint - can't determine if updates are needed
+                        deployBtn.innerHTML = '<i class="bi bi-arrow-clockwise text-white me-1"></i> Deploy';
+                        deployBtn.className = 'btn btn-success';
+                        deployBtn.disabled = false;
+                        deployBtn.title = 'Deploy beschikbaar';
+                        
+                        const version = data.version;
+                        checkBtn.innerHTML = `<i class="bi bi-info-circle text-white me-1"></i> v${version} - Status Geladen`;
+                        checkBtn.className = 'btn btn-sm btn-info';
+                    }
                     
                     setTimeout(() => {
                         checkBtn.innerHTML = originalHtml;
