@@ -10346,7 +10346,7 @@ Deze actie is omkeerbaar.
                                     <i class="bi bi-eye"></i> Alleen Preview
                                 </button>
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
-                                <button type="button" class="btn btn-success" onclick="adminApp.saveWebsiteEdit('${service.id}')">
+                                <button type="submit" class="btn btn-success">
                                     <i class="bi bi-check-lg"></i> Website Content Opslaan
                                 </button>
                             </div>
@@ -10361,6 +10361,15 @@ Deze actie is omkeerbaar.
                 modal.addEventListener('hidden.bs.modal', () => {
                     modal.remove();
                 });
+
+                // Setup form submission
+                const form = document.getElementById('websiteEditForm');
+                if (form) {
+                    form.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        await this.saveWebsiteEdit(serviceId);
+                    });
+                }
 
                 // Add real-time preview updates
                 this.setupWebsiteEditPreview();
