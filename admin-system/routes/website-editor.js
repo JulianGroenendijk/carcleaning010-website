@@ -28,37 +28,74 @@ router.get('/services', async (req, res) => {
             params.push(package_type);
         }
 
-        // Get services with ALL fields needed for website display
+        // Check which columns exist in the services table
+        const columnsResult = await query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'services' AND table_schema = 'public'
+        `);
+        
+        const availableColumns = columnsResult.rows.map(row => row.column_name);
+        console.log('Available columns in services table:', availableColumns);
+        
+        // Build dynamic column list based on what exists
+        const baseColumns = ['id', 'name', 'description', 'category', 'base_price', 'duration_minutes', 'active'];
+        const newColumns = ['price_range_min', 'price_range_max', 'duration_text', 'package_type', 'subtitle', 'icon', 'image_url', 'features', 'featured', 'sort_order'];
+        
+        const selectColumns = [...baseColumns];
+        newColumns.forEach(col => {
+            if (availableColumns.includes(col)) {
+                selectColumns.push(col);
+            }
+        });
+
+        console.log('Using columns for SELECT:', selectColumns);
+
+        // Get services with available fields
         const servicesResult = await query(`
-            SELECT 
-                id, name, description, category, 
-                base_price, price_range_min, price_range_max,
-                duration_minutes, duration_text,
-                package_type, subtitle, icon, image_url, features,
-                active, featured, sort_order
+            SELECT ${selectColumns.join(', ')}
             FROM services
             ${whereClause}
             ORDER BY 
+                ${availableColumns.includes('package_type') ? `
                 CASE package_type 
                     WHEN 'signature' THEN 1
                     WHEN 'individual' THEN 2
                     ELSE 3
-                END,
-                sort_order ASC, 
+                END,` : ''}
+                ${availableColumns.includes('sort_order') ? 'sort_order ASC,' : ''} 
                 name
         `, params);
 
-        // Get add-ons
-        const addonsResult = await query(`
-            SELECT id, name, description, price, active
-            FROM service_addons
-            WHERE active = true
-            ORDER BY sort_order ASC, name
-        `);
+        // Get add-ons (if table exists)
+        let addonsResult = { rows: [] };
+        try {
+            addonsResult = await query(`
+                SELECT id, name, description, price, active
+                FROM service_addons
+                WHERE active = true
+                ORDER BY sort_order ASC, name
+            `);
+            console.log('Found service addons:', addonsResult.rows.length);
+        } catch (error) {
+            console.log('Service addons table not found, using empty array');
+            addonsResult = { rows: [] };
+        }
 
-        // Format for website preview
+        // Format for website preview with safe defaults
         const formattedServices = servicesResult.rows.map(service => ({
             ...service,
+            // Add safe defaults for missing fields
+            price_range_min: service.price_range_min || service.base_price || '0',
+            price_range_max: service.price_range_max || service.base_price || '0',
+            package_type: service.package_type || 'individual',
+            subtitle: service.subtitle || service.description || '',
+            icon: service.icon || '▪',
+            image_url: service.image_url || null,
+            features: service.features || [],
+            featured: service.featured || false,
+            sort_order: service.sort_order || 0,
+            duration_text: service.duration_text || null,
             formatted_price: formatServicePrice(service),
             formatted_duration: formatDuration(service),
             features_list: Array.isArray(service.features) ? service.features : []
