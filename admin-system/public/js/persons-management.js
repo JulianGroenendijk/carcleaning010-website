@@ -910,9 +910,305 @@ AdminApp.prototype.handleUpdatePerson = async function(form) {
 
 // Show person details modal
 AdminApp.prototype.showPersonDetailsModal = function(person) {
-    // This would show detailed person view
-    console.log('Person details modal - to be implemented', person);
-    this.showToast('Person Details functionaliteit wordt nog ontwikkeld', 'info');
+    const modalHTML = `
+        <div class="modal fade" id="personDetailsModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-person-circle"></i> ${person.first_name} ${person.last_name}
+                            ${person.is_individual_customer ? '<span class="badge bg-success ms-2">Particuliere Klant</span>' : ''}
+                            ${person.is_business_customer ? '<span class="badge bg-primary ms-2">Zakelijke Klant</span>' : ''}
+                            ${person.is_individual_lead ? '<span class="badge bg-warning ms-2">Particuliere Lead</span>' : ''}
+                            ${person.is_business_lead ? '<span class="badge bg-info ms-2">Zakelijke Lead</span>' : ''}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <!-- Persoonlijke Informatie -->
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">
+                                            <i class="bi bi-person-fill"></i> Persoonlijke Informatie
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Naam:</strong></div>
+                                            <div class="col-sm-8">${person.first_name} ${person.last_name}</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>E-mail:</strong></div>
+                                            <div class="col-sm-8">${person.email || '<span class="text-muted">Niet opgegeven</span>'}</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Telefoon:</strong></div>
+                                            <div class="col-sm-8">${person.phone || '<span class="text-muted">Niet opgegeven</span>'}</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Mobiel:</strong></div>
+                                            <div class="col-sm-8">${person.mobile || '<span class="text-muted">Niet opgegeven</span>'}</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Adres:</strong></div>
+                                            <div class="col-sm-8">
+                                                ${person.address ? `${person.address}<br>` : ''}
+                                                ${person.postal_code || ''} ${person.city || ''}
+                                                ${!person.address && !person.postal_code && !person.city ? '<span class="text-muted">Niet opgegeven</span>' : ''}
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Geboortedatum:</strong></div>
+                                            <div class="col-sm-8">${person.date_of_birth ? new Date(person.date_of_birth).toLocaleDateString('nl-NL') : '<span class="text-muted">Niet opgegeven</span>'}</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Geslacht:</strong></div>
+                                            <div class="col-sm-8">
+                                                ${person.gender === 'male' ? 'Man' : 
+                                                  person.gender === 'female' ? 'Vrouw' : 
+                                                  person.gender === 'other' ? 'Anders' : 
+                                                  '<span class="text-muted">Niet opgegeven</span>'}
+                                            </div>
+                                        </div>
+                                        <div class="row mb-0">
+                                            <div class="col-sm-4"><strong>Marketing:</strong></div>
+                                            <div class="col-sm-8">
+                                                ${person.marketing_consent ? 
+                                                    '<span class="badge bg-success">Toestemming gegeven</span>' : 
+                                                    '<span class="badge bg-secondary">Geen toestemming</span>'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Status & Lead Informatie -->
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">
+                                            <i class="bi bi-graph-up"></i> Status & Lead Informatie
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Status:</strong></div>
+                                            <div class="col-sm-8">
+                                                ${person.lead_status ? `<span class="badge bg-secondary">${person.lead_status}</span>` : '<span class="text-muted">Geen status</span>'}
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Lead Bron:</strong></div>
+                                            <div class="col-sm-8">${person.lead_source || '<span class="text-muted">Niet opgegeven</span>'}</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Eerste Betaling:</strong></div>
+                                            <div class="col-sm-8">
+                                                ${person.first_paid_invoice_date ? 
+                                                    new Date(person.first_paid_invoice_date).toLocaleDateString('nl-NL') : 
+                                                    '<span class="text-muted">Nog geen betaling</span>'}
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Voertuigen:</strong></div>
+                                            <div class="col-sm-8">
+                                                <span class="badge bg-dark">${person.vehicle_count || 0}</span>
+                                                ${person.vehicle_count > 0 ? 
+                                                    `<button class="btn btn-sm btn-outline-primary ms-2" onclick="this.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.dispatchEvent(new CustomEvent('viewVehicles', {detail: {personId: '${person.id}'}}))">
+                                                        <i class="bi bi-car-front"></i> Bekijk
+                                                    </button>` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4"><strong>Aangemaakt:</strong></div>
+                                            <div class="col-sm-8">${new Date(person.created_at).toLocaleDateString('nl-NL')} ${new Date(person.created_at).toLocaleTimeString('nl-NL')}</div>
+                                        </div>
+                                        <div class="row mb-0">
+                                            <div class="col-sm-4"><strong>Laatst Bijgewerkt:</strong></div>
+                                            <div class="col-sm-8">${new Date(person.updated_at).toLocaleDateString('nl-NL')} ${new Date(person.updated_at).toLocaleTimeString('nl-NL')}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bedrijfsrelaties -->
+                        <div class="row mt-3" id="companyRelationships">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">
+                                            <i class="bi bi-building"></i> Bedrijfsrelaties
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="companiesLoading" class="text-center">
+                                            <div class="spinner-border spinner-border-sm me-2"></div>
+                                            Bedrijfsrelaties laden...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Opmerkingen -->
+                        ${person.notes ? `
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">
+                                            <i class="bi bi-chat-text"></i> Opmerkingen
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="bg-light p-3 rounded" style="white-space: pre-wrap;">${person.notes}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- Recente Activiteit -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">
+                                            <i class="bi bi-clock-history"></i> Recente Activiteit
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="activityLoading" class="text-center">
+                                            <div class="spinner-border spinner-border-sm me-2"></div>
+                                            Activiteiten laden...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Sluiten
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="this.closest('.modal').dispatchEvent(new CustomEvent('editPerson', {detail: {personId: '${person.id}'}}))">
+                            <i class="bi bi-pencil"></i> Bewerken
+                        </button>
+                        ${(person.is_individual_lead || person.is_business_lead) ? 
+                            `<button type="button" class="btn btn-warning" onclick="this.closest('.modal').dispatchEvent(new CustomEvent('convertPerson', {detail: {personId: '${person.id}'}}))">
+                                <i class="bi bi-arrow-right-circle"></i> Naar Klant Converteren
+                            </button>` : ''
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if present
+    const existingModal = document.getElementById('personDetailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Setup custom event listeners for modal actions
+    const modal = document.getElementById('personDetailsModal');
+    modal.addEventListener('editPerson', (e) => {
+        bootstrap.Modal.getInstance(modal).hide();
+        this.editPerson(e.detail.personId);
+    });
+    
+    modal.addEventListener('convertPerson', (e) => {
+        bootstrap.Modal.getInstance(modal).hide();
+        this.convertPersonToCustomer(e.detail.personId);
+    });
+    
+    modal.addEventListener('viewVehicles', (e) => {
+        // TODO: Implement vehicle view functionality
+        this.showToast('Voertuig overzicht wordt nog ontwikkeld', 'info');
+    });
+
+    // Load additional data after modal is shown
+    const bootstrapModal = new bootstrap.Modal(modal);
+    modal.addEventListener('shown.bs.modal', async () => {
+        await this.loadPersonCompanyRelationships(person.id);
+        await this.loadPersonRecentActivity(person.id);
+    });
+    
+    bootstrapModal.show();
+};
+
+// Load person company relationships
+AdminApp.prototype.loadPersonCompanyRelationships = async function(personId) {
+    try {
+        // For now, we'll use a simple approach since we don't have a dedicated endpoint yet
+        // This would ideally call something like /api/persons/{id}/companies
+        const companiesContainer = document.getElementById('companiesLoading');
+        if (!companiesContainer) return;
+        
+        // Simulate loading companies - in reality this would be an API call
+        // const response = await this.apiCall('GET', `/api/persons/${personId}/companies`);
+        
+        // For now, show a placeholder
+        companiesContainer.innerHTML = `
+            <div class="text-muted">
+                <i class="bi bi-info-circle"></i>
+                Geen bedrijfsrelaties gevonden of nog niet geïmplementeerd.
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading company relationships:', error);
+        const companiesContainer = document.getElementById('companiesLoading');
+        if (companiesContainer) {
+            companiesContainer.innerHTML = `
+                <div class="text-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Fout bij laden bedrijfsrelaties
+                </div>
+            `;
+        }
+    }
+};
+
+// Load person recent activity  
+AdminApp.prototype.loadPersonRecentActivity = async function(personId) {
+    try {
+        const activityContainer = document.getElementById('activityLoading');
+        if (!activityContainer) return;
+        
+        // For now, show a placeholder - in reality this would aggregate data from:
+        // - Recent invoices
+        // - Recent appointments  
+        // - Recent quotes
+        // - Recent certificates
+        
+        activityContainer.innerHTML = `
+            <div class="text-muted">
+                <i class="bi bi-info-circle"></i>
+                Recente activiteit overzicht wordt nog ontwikkeld.
+                <br><small>Dit zou facturen, afspraken, offertes en certificaten tonen.</small>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading recent activity:', error);
+        const activityContainer = document.getElementById('activityLoading');
+        if (activityContainer) {
+            activityContainer.innerHTML = `
+                <div class="text-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Fout bij laden recente activiteit
+                </div>
+            `;
+        }
+    }
 };
 
 // Show convert lead modal
@@ -1259,9 +1555,281 @@ AdminApp.prototype.exportPersonsToCSV = function() {
 };
 
 // Add vehicle to person
-AdminApp.prototype.addVehicleToPerson = function(personId) {
-    console.log('Add vehicle to person - to be implemented', personId);
-    this.showToast('Add Vehicle functionaliteit wordt nog ontwikkeld', 'info');
+AdminApp.prototype.addVehicleToPerson = async function(personId) {
+    try {
+        // First get person details for the modal title
+        const person = await this.apiCall('GET', `/api/persons/${personId}`);
+        
+        const modalHTML = `
+            <div class="modal fade" id="addVehicleModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-car-front"></i> Voertuig Toevoegen voor ${person.first_name} ${person.last_name}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="addVehicleForm">
+                            <input type="hidden" name="owner_person_id" value="${personId}">
+                            <input type="hidden" name="primary_driver_id" value="${personId}">
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i>
+                                    Dit voertuig wordt eigendom van <strong>${person.first_name} ${person.last_name}</strong> en hij/zij wordt ook de primaire bestuurder.
+                                </div>
+                                
+                                <!-- Voertuig Basis Info -->
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Merk *</label>
+                                            <input type="text" class="form-control" name="make" placeholder="bijv. BMW, Mercedes, Toyota" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Model *</label>
+                                            <input type="text" class="form-control" name="model" placeholder="bijv. 3 Serie, C-Klasse, Corolla" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Variant</label>
+                                            <input type="text" class="form-control" name="variant" placeholder="bijv. 320i, AMG, Hybrid">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Bouwjaar</label>
+                                            <input type="number" class="form-control" name="year" min="1900" max="2030" placeholder="2020">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Kleur</label>
+                                            <input type="text" class="form-control" name="color" placeholder="bijv. Zwart, Wit, Blauw">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Kenteken *</label>
+                                            <input type="text" class="form-control" name="license_plate" placeholder="12-ABC-3" required style="text-transform: uppercase;">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Kilometerstand</label>
+                                            <input type="number" class="form-control" name="mileage" placeholder="150000">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Technische Details -->
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Voertuig Type</label>
+                                            <select class="form-select" name="vehicle_type">
+                                                <option value="car" selected>Auto</option>
+                                                <option value="suv">SUV</option>
+                                                <option value="van">Bestelwagen</option>
+                                                <option value="truck">Vrachtwagen</option>
+                                                <option value="motorcycle">Motor</option>
+                                                <option value="boat">Boot</option>
+                                                <option value="other">Anders</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Brandstof Type</label>
+                                            <select class="form-select" name="fuel_type">
+                                                <option value="">Selecteer...</option>
+                                                <option value="petrol">Benzine</option>
+                                                <option value="diesel">Diesel</option>
+                                                <option value="electric">Elektrisch</option>
+                                                <option value="hybrid">Hybride</option>
+                                                <option value="lpg">LPG</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Motorinhoud</label>
+                                            <input type="text" class="form-control" name="engine_size" placeholder="bijv. 2.0L, 1600cc">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Transmissie</label>
+                                            <select class="form-select" name="transmission">
+                                                <option value="">Selecteer...</option>
+                                                <option value="manual">Handgeschakeld</option>
+                                                <option value="automatic">Automaat</option>
+                                                <option value="cvt">CVT</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Aandrijving</label>
+                                            <select class="form-select" name="drivetrain">
+                                                <option value="">Selecteer...</option>
+                                                <option value="fwd">Voorwielaandrijving</option>
+                                                <option value="rwd">Achterwielaandrijving</option>
+                                                <option value="awd">Vierwielaandrijving</option>
+                                                <option value="4wd">4WD</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- VIN en Datums -->
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="mb-3">
+                                            <label class="form-label">VIN Nummer</label>
+                                            <input type="text" class="form-control" name="vin" placeholder="Chassisnummer (optioneel)">
+                                            <div class="form-text">17-cijferig voertuigidentificatienummer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Aankoopdatum</label>
+                                            <input type="date" class="form-control" name="purchase_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Kentekendatum</label>
+                                            <input type="date" class="form-control" name="registration_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Marktwaarde (€)</label>
+                                            <input type="number" class="form-control" name="market_value" step="0.01" placeholder="25000.00">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Opmerkingen -->
+                                <div class="mb-3">
+                                    <label class="form-label">Opmerkingen</label>
+                                    <textarea class="form-control" name="notes" rows="3" placeholder="Bijzonderheden, modificaties, schade, etc."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x-circle"></i> Annuleren
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-car-front"></i> Voertuig Toevoegen
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if present
+        const existingModal = document.getElementById('addVehicleModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Setup form submission
+        document.getElementById('addVehicleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleAddVehicle(e.target);
+        });
+
+        // Auto-format license plate
+        const licensePlateInput = document.querySelector('input[name="license_plate"]');
+        licensePlateInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('addVehicleModal'));
+        modal.show();
+        
+    } catch (error) {
+        console.error('Error loading add vehicle modal:', error);
+        this.showToast('Fout bij laden voertuig formulier', 'error');
+    }
+};
+
+// Handle add vehicle form submission
+AdminApp.prototype.handleAddVehicle = async function(form) {
+    try {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Bezig...';
+        
+        // Collect form data
+        const formData = new FormData(form);
+        const vehicleData = {
+            owner_person_id: formData.get('owner_person_id'),
+            primary_driver_id: formData.get('primary_driver_id'),
+            make: formData.get('make'),
+            model: formData.get('model'),
+            variant: formData.get('variant') || null,
+            year: formData.get('year') ? parseInt(formData.get('year')) : null,
+            color: formData.get('color') || null,
+            license_plate: formData.get('license_plate'),
+            vin: formData.get('vin') || null,
+            vehicle_type: formData.get('vehicle_type') || 'car',
+            fuel_type: formData.get('fuel_type') || null,
+            engine_size: formData.get('engine_size') || null,
+            transmission: formData.get('transmission') || null,
+            drivetrain: formData.get('drivetrain') || null,
+            mileage: formData.get('mileage') ? parseInt(formData.get('mileage')) : null,
+            purchase_date: formData.get('purchase_date') || null,
+            registration_date: formData.get('registration_date') || null,
+            market_value: formData.get('market_value') ? parseFloat(formData.get('market_value')) : null,
+            notes: formData.get('notes') || null
+        };
+        
+        // Create vehicle via API (assuming we have a vehicles endpoint)
+        const result = await this.apiCall('POST', '/api/vehicles-unified', vehicleData);
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addVehicleModal'));
+        modal.hide();
+        
+        // Refresh persons data to update vehicle counts
+        await this.loadPersonsData();
+        await this.updatePersonsStats();
+        
+        this.showToast(`Voertuig "${result.make} ${result.model}" (${result.license_plate}) succesvol toegevoegd`, 'success');
+        
+    } catch (error) {
+        console.error('Error adding vehicle:', error);
+        this.showToast(`Fout bij toevoegen voertuig: ${error.message}`, 'error');
+        
+        // Reset button
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-car-front"></i> Voertuig Toevoegen';
+    }
 };
 
 // Add person to company
