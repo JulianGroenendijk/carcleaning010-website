@@ -393,4 +393,135 @@ router.delete('/:companyId/contacts/:contactId', async (req, res) => {
     }
 });
 
+// =======================
+// VEHICLE ENDPOINTS
+// =======================
+
+// Add vehicle to company
+router.post('/:id/vehicles', async (req, res) => {
+    try {
+        const companyId = req.params.id;
+        const {
+            make,
+            model,
+            year,
+            color,
+            license_plate,
+            vin,
+            vehicle_type = 'car',
+            primary_driver,
+            mileage,
+            fuel_type,
+            is_active = true,
+            notes
+        } = req.body;
+
+        // Validation
+        if (!make || !model || !license_plate) {
+            return res.status(400).json({ error: 'Merk, model en kenteken zijn verplicht' });
+        }
+
+        // Check if company exists
+        const companyCheck = await query('SELECT id FROM companies WHERE id = $1 AND is_active = true', [companyId]);
+        if (companyCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Bedrijf niet gevonden' });
+        }
+
+        console.log('Creating vehicle for company:', companyId, 'Data:', req.body);
+
+        const result = await query(`
+            INSERT INTO vehicles (
+                company_id, make, model, year, color, license_plate, vin, 
+                vehicle_type, primary_driver, mileage, fuel_type, is_active, notes,
+                created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING *
+        `, [
+            companyId, make, model, year, color, license_plate, vin, 
+            vehicle_type, primary_driver, mileage, fuel_type, is_active, notes
+        ]);
+
+        console.log('Vehicle created:', result.rows[0]);
+        res.status(201).json(result.rows[0]);
+
+    } catch (error) {
+        console.error('Error creating vehicle:', error);
+        res.status(500).json({ error: 'Fout bij aanmaken voertuig' });
+    }
+});
+
+// Update vehicle
+router.put('/:companyId/vehicles/:vehicleId', async (req, res) => {
+    try {
+        const { companyId, vehicleId } = req.params;
+        const {
+            make,
+            model,
+            year,
+            color,
+            license_plate,
+            vin,
+            vehicle_type,
+            primary_driver,
+            mileage,
+            fuel_type,
+            is_active,
+            notes
+        } = req.body;
+
+        console.log('Updating vehicle:', vehicleId, 'for company:', companyId);
+
+        const result = await query(`
+            UPDATE vehicles SET 
+                make = $3, model = $4, year = $5, color = $6, license_plate = $7, 
+                vin = $8, vehicle_type = $9, primary_driver = $10, mileage = $11, 
+                fuel_type = $12, is_active = $13, notes = $14, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = $1 AND company_id = $2
+            RETURNING *
+        `, [
+            vehicleId, companyId, make, model, year, color, license_plate, 
+            vin, vehicle_type, primary_driver, mileage, fuel_type, is_active, notes
+        ]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Voertuig niet gevonden' });
+        }
+
+        console.log('Vehicle updated:', result.rows[0]);
+        res.json(result.rows[0]);
+
+    } catch (error) {
+        console.error('Error updating vehicle:', error);
+        res.status(500).json({ error: 'Fout bij bijwerken voertuig' });
+    }
+});
+
+// Deactivate vehicle
+router.delete('/:companyId/vehicles/:vehicleId', async (req, res) => {
+    try {
+        const { companyId, vehicleId } = req.params;
+
+        console.log('Deactivating vehicle:', vehicleId, 'for company:', companyId);
+
+        const result = await query(`
+            UPDATE vehicles SET 
+                is_active = false,
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE id = $1 AND company_id = $2
+            RETURNING id
+        `, [vehicleId, companyId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Voertuig niet gevonden' });
+        }
+
+        res.json({ message: 'Voertuig succesvol gedeactiveerd' });
+
+    } catch (error) {
+        console.error('Error deactivating vehicle:', error);
+        res.status(500).json({ error: 'Fout bij deactiveren voertuig' });
+    }
+});
+
 module.exports = router;

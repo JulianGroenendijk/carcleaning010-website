@@ -7573,6 +7573,465 @@ Deze actie is omkeerbaar.
         }
     }
 
+    // Contact Person Management
+    showAddContactModal(companyId) {
+        // Remove existing modal if present
+        const existingModal = document.getElementById('addContactModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Create contact modal HTML
+        const modalHTML = `
+            <div class="modal fade" id="addContactModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-person-plus text-primary"></i> Contactpersoon Toevoegen
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="addContactForm">
+                            <div class="modal-body">
+                                <div class="row">
+                                    <!-- Personal Info -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="bi bi-person-badge"></i> Persoonlijke Gegevens
+                                        </h6>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="contactFirstName" class="form-label">
+                                                        Voornaam <span class="text-danger">*</span>
+                                                    </label>
+                                                    <input type="text" class="form-control" id="contactFirstName" required>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="contactLastName" class="form-label">
+                                                        Achternaam <span class="text-danger">*</span>
+                                                    </label>
+                                                    <input type="text" class="form-control" id="contactLastName" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="contactJobTitle" class="form-label">Functietitel</label>
+                                            <input type="text" class="form-control" id="contactJobTitle" 
+                                                   placeholder="Manager, Eigenaar, etc.">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="contactDepartment" class="form-label">Afdeling</label>
+                                            <input type="text" class="form-control" id="contactDepartment" 
+                                                   placeholder="Sales, Operations, etc.">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Contact Info -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="bi bi-telephone"></i> Contactgegevens
+                                        </h6>
+                                        
+                                        <div class="mb-3">
+                                            <label for="contactEmail" class="form-label">Email</label>
+                                            <input type="email" class="form-control" id="contactEmail">
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="contactPhone" class="form-label">Telefoon</label>
+                                                    <input type="tel" class="form-control" id="contactPhone">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="contactMobile" class="form-label">Mobiel</label>
+                                                    <input type="tel" class="form-control" id="contactMobile">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <h6 class="text-muted mb-3 mt-4">
+                                            <i class="bi bi-gear"></i> Contact Rollen
+                                        </h6>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="contactIsPrimary">
+                                            <label class="form-check-label" for="contactIsPrimary">
+                                                <strong>Primair contact</strong>
+                                                <br><small class="text-muted">Hoofdcontactpersoon voor dit bedrijf</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="contactIsBilling">
+                                            <label class="form-check-label" for="contactIsBilling">
+                                                <strong>Facturatie contact</strong>
+                                                <br><small class="text-muted">Voor facturen en betalingen</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="contactIsTechnical">
+                                            <label class="form-check-label" for="contactIsTechnical">
+                                                <strong>Technisch contact</strong>
+                                                <br><small class="text-muted">Voor technische zaken en planning</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Notes -->
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="mb-3">
+                                            <label for="contactNotes" class="form-label">Notities</label>
+                                            <textarea class="form-control" id="contactNotes" rows="3" 
+                                                      placeholder="Optionele notities over deze contactpersoon..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    Annuleren
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="saveContactBtn">
+                                    <i class="bi bi-person-check"></i> Contact Opslaan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Setup form submission
+        const form = document.getElementById('addContactForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleAddContactSubmit(companyId);
+        });
+
+        // Show modal
+        const bootstrapModal = new bootstrap.Modal(document.getElementById('addContactModal'));
+        bootstrapModal.show();
+    }
+
+    async handleAddContactSubmit(companyId) {
+        const saveBtn = document.getElementById('saveContactBtn');
+        const originalText = saveBtn.innerHTML;
+        
+        try {
+            // Show loading state
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Opslaan...';
+
+            // Collect form data
+            const formData = {
+                company_id: companyId,
+                first_name: document.getElementById('contactFirstName').value.trim(),
+                last_name: document.getElementById('contactLastName').value.trim(),
+                job_title: document.getElementById('contactJobTitle').value.trim() || null,
+                department: document.getElementById('contactDepartment').value.trim() || null,
+                email: document.getElementById('contactEmail').value.trim() || null,
+                phone: document.getElementById('contactPhone').value.trim() || null,
+                mobile: document.getElementById('contactMobile').value.trim() || null,
+                is_primary_contact: document.getElementById('contactIsPrimary').checked,
+                is_billing_contact: document.getElementById('contactIsBilling').checked,
+                is_technical_contact: document.getElementById('contactIsTechnical').checked,
+                notes: document.getElementById('contactNotes').value.trim() || null
+            };
+
+            // Validate required fields
+            if (!formData.first_name || !formData.last_name) {
+                throw new Error('Voor- and achternaam zijn verplicht');
+            }
+
+            console.log('Creating contact with data:', formData);
+
+            // Submit to API
+            const newContact = await this.apiCall('POST', `/api/companies/${companyId}/contacts`, formData);
+            
+            console.log('Contact created:', newContact);
+            this.showToast('✅ Contactpersoon succesvol toegevoegd!', 'success');
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addContactModal'));
+            if (modal) modal.hide();
+
+            // Refresh company view if open
+            const viewModal = document.getElementById('viewCompanyModal');
+            if (viewModal && !viewModal.classList.contains('d-none')) {
+                // Reload company view to show new contact
+                setTimeout(() => this.viewCompany(companyId), 300);
+            }
+
+        } catch (error) {
+            console.error('Error creating contact:', error);
+            this.showToast(`❌ Fout bij aanmaken contactpersoon: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    }
+
+    // Vehicle Management
+    showAddVehicleModal(companyId) {
+        // Remove existing modal if present
+        const existingModal = document.getElementById('addVehicleModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Create vehicle modal HTML
+        const modalHTML = `
+            <div class="modal fade" id="addVehicleModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-car-front-fill text-success"></i> Voertuig Toevoegen
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="addVehicleForm">
+                            <div class="modal-body">
+                                <div class="row">
+                                    <!-- Vehicle Info -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="bi bi-info-circle"></i> Voertuiggegevens
+                                        </h6>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="vehicleMake" class="form-label">
+                                                        Merk <span class="text-danger">*</span>
+                                                    </label>
+                                                    <input type="text" class="form-control" id="vehicleMake" required 
+                                                           placeholder="BMW, Mercedes, Audi, etc.">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="vehicleModel" class="form-label">
+                                                        Model <span class="text-danger">*</span>
+                                                    </label>
+                                                    <input type="text" class="form-control" id="vehicleModel" required
+                                                           placeholder="3-Serie, C-Klasse, etc.">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="vehicleYear" class="form-label">Bouwjaar</label>
+                                                    <input type="number" class="form-control" id="vehicleYear" 
+                                                           min="1900" max="2030" placeholder="2020">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="vehicleColor" class="form-label">Kleur</label>
+                                                    <input type="text" class="form-control" id="vehicleColor"
+                                                           placeholder="Zwart, Wit, Blauw, etc.">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="vehicleLicensePlate" class="form-label">
+                                                Kenteken <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" class="form-control" id="vehicleLicensePlate" required
+                                                   placeholder="12-ABC-3" style="text-transform: uppercase;">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="vehicleVin" class="form-label">VIN-nummer</label>
+                                            <input type="text" class="form-control" id="vehicleVin"
+                                                   placeholder="Chassisnummer (optioneel)">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Additional Info -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="bi bi-gear"></i> Aanvullende Gegevens
+                                        </h6>
+                                        
+                                        <div class="mb-3">
+                                            <label for="vehicleType" class="form-label">Voertuigtype</label>
+                                            <select class="form-select" id="vehicleType">
+                                                <option value="car">Personenauto</option>
+                                                <option value="suv">SUV</option>
+                                                <option value="van">Bestelwagen</option>
+                                                <option value="truck">Vrachtwagen</option>
+                                                <option value="motorcycle">Motor</option>
+                                                <option value="boat">Boot</option>
+                                                <option value="other">Anders</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="vehiclePrimaryDriver" class="form-label">Hoofdbestuurder</label>
+                                            <input type="text" class="form-control" id="vehiclePrimaryDriver"
+                                                   placeholder="Naam van hoofdbestuurder">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="vehicleMileage" class="form-label">Kilometerstand</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" id="vehicleMileage" 
+                                                       placeholder="150000">
+                                                <span class="input-group-text">km</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="vehicleFuelType" class="form-label">Brandstoftype</label>
+                                            <select class="form-select" id="vehicleFuelType">
+                                                <option value="">Selecteer brandstof...</option>
+                                                <option value="petrol">Benzine</option>
+                                                <option value="diesel">Diesel</option>
+                                                <option value="hybrid">Hybride</option>
+                                                <option value="electric">Elektrisch</option>
+                                                <option value="lpg">LPG</option>
+                                                <option value="other">Anders</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="vehicleIsActive" checked>
+                                            <label class="form-check-label" for="vehicleIsActive">
+                                                <strong>Actief voertuig</strong>
+                                                <br><small class="text-muted">Voertuig is in gebruik</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Notes -->
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="mb-3">
+                                            <label for="vehicleNotes" class="form-label">Opmerkingen</label>
+                                            <textarea class="form-control" id="vehicleNotes" rows="3" 
+                                                      placeholder="Bijzonderheden, schades, modificaties, etc..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    Annuleren
+                                </button>
+                                <button type="submit" class="btn btn-success" id="saveVehicleBtn">
+                                    <i class="bi bi-check-circle"></i> Voertuig Opslaan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Setup form submission
+        const form = document.getElementById('addVehicleForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleAddVehicleSubmit(companyId);
+        });
+
+        // Auto-format license plate input
+        const licensePlateInput = document.getElementById('vehicleLicensePlate');
+        licensePlateInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        // Show modal
+        const bootstrapModal = new bootstrap.Modal(document.getElementById('addVehicleModal'));
+        bootstrapModal.show();
+    }
+
+    async handleAddVehicleSubmit(companyId) {
+        const saveBtn = document.getElementById('saveVehicleBtn');
+        const originalText = saveBtn.innerHTML;
+        
+        try {
+            // Show loading state
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Opslaan...';
+
+            // Collect form data
+            const formData = {
+                company_id: companyId,
+                make: document.getElementById('vehicleMake').value.trim(),
+                model: document.getElementById('vehicleModel').value.trim(),
+                year: document.getElementById('vehicleYear').value || null,
+                color: document.getElementById('vehicleColor').value.trim() || null,
+                license_plate: document.getElementById('vehicleLicensePlate').value.trim(),
+                vin: document.getElementById('vehicleVin').value.trim() || null,
+                vehicle_type: document.getElementById('vehicleType').value || 'car',
+                primary_driver: document.getElementById('vehiclePrimaryDriver').value.trim() || null,
+                mileage: document.getElementById('vehicleMileage').value || null,
+                fuel_type: document.getElementById('vehicleFuelType').value || null,
+                is_active: document.getElementById('vehicleIsActive').checked,
+                notes: document.getElementById('vehicleNotes').value.trim() || null
+            };
+
+            // Validate required fields
+            if (!formData.make || !formData.model || !formData.license_plate) {
+                throw new Error('Merk, model en kenteken zijn verplicht');
+            }
+
+            console.log('Creating vehicle with data:', formData);
+
+            // Submit to API
+            const newVehicle = await this.apiCall('POST', `/api/companies/${companyId}/vehicles`, formData);
+            
+            console.log('Vehicle created:', newVehicle);
+            this.showToast('✅ Voertuig succesvol toegevoegd!', 'success');
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addVehicleModal'));
+            if (modal) modal.hide();
+
+            // Refresh company view if open
+            const viewModal = document.getElementById('viewCompanyModal');
+            if (viewModal && !viewModal.classList.contains('d-none')) {
+                // Reload company view to show new vehicle
+                setTimeout(() => this.viewCompany(companyId), 300);
+            }
+
+        } catch (error) {
+            console.error('Error creating vehicle:', error);
+            this.showToast(`❌ Fout bij aanmaken voertuig: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    }
+
     filterServices() {
         const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
         const searchFilter = document.getElementById('searchServices').value.toLowerCase();
