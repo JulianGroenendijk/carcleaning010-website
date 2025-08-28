@@ -89,7 +89,7 @@ router.post('/', leadLimiter, async (req, res) => {
                 formData.carModel,
                 formData.carYear,
                 formData.carColor
-            ].filter(part => part && part.trim());
+            ].filter(part => part && String(part).trim()).map(part => String(part).trim());
             
             if (carParts.length > 0) {
                 vehicleInfo = carParts.join(' ');
@@ -128,18 +128,32 @@ router.post('/', leadLimiter, async (req, res) => {
 
         let result;
         
+        // Build comprehensive message with all data temporarily until migration is done
+        let comprehensiveMessage = message || '';
+        
+        const allDataParts = [];
+        if (city) allDataParts.push(`Stad: ${city}`);
+        if (postcode) allDataParts.push(`Postcode: ${postcode}`);
+        if (serviceLocation) allDataParts.push(`Service locatie: ${serviceLocation}`);
+        if (preferredDate) allDataParts.push(`Gewenste datum: ${preferredDate}`);
+        if (preferredTime) allDataParts.push(`Voorkeurstijd: ${preferredTime}`);
+        if (servicesRequested.length > 0) allDataParts.push(`Gewenste diensten: ${servicesRequested.join(', ')}`);
+        
+        if (allDataParts.length > 0) {
+            const allDataText = allDataParts.join('\n');
+            comprehensiveMessage = comprehensiveMessage ? `${comprehensiveMessage}\n\n--- Formulier Details ---\n${allDataText}` : allDataText;
+        }
+
         if (existingCustomer) {
             // Bestaande klant - maak een appointment request of service request
             console.log(`🔄 Bestaande klant gedetecteerd: ${existingCustomer.first_name} ${existingCustomer.last_name} (${existingCustomer.email})`);
             
-            // Voeg toe aan website_leads met verwijzing naar customer
+            // Voeg toe aan website_leads (basic version for now)
             result = await query(`
                 INSERT INTO website_leads (
                     first_name, last_name, email, phone, 
-                    service_type, vehicle_info, message, source, 
-                    customer_id, status, city, postcode, service_location,
-                    preferred_date, preferred_time, services_requested
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'website', $8, 'existing_customer', $9, $10, $11, $12, $13, $14)
+                    service_type, vehicle_info, message, source, status
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'website', 'contacted')
                 RETURNING *
             `, [
                 firstName || existingCustomer.first_name,
@@ -148,21 +162,18 @@ router.post('/', leadLimiter, async (req, res) => {
                 phone || existingCustomer.phone,
                 serviceType,
                 vehicleInfo,
-                message,
-                existingCustomer.id,
-                city,
-                postcode,
-                serviceLocation,
-                preferredDate,
-                preferredTime,
-                JSON.stringify(servicesRequested)
+                comprehensiveMessage
             ]);
             
             return res.status(201).json({
                 message: 'Welkom terug! Uw aanvraag is ontvangen. We nemen zo snel mogelijk contact met u op voor het inplannen van uw afspraak.',
                 id: result.rows[0].id,
                 created_at: result.rows[0].created_at,
-                customer_status: 'existing'
+                customer_status: 'existing',
+                customer_info: {
+                    id: existingCustomer.id,
+                    name: `${existingCustomer.first_name} ${existingCustomer.last_name}`
+                }
             });
             
         } else {
@@ -172,10 +183,8 @@ router.post('/', leadLimiter, async (req, res) => {
             result = await query(`
                 INSERT INTO website_leads (
                     first_name, last_name, email, phone, 
-                    service_type, vehicle_info, message, source, status,
-                    city, postcode, service_location, preferred_date, 
-                    preferred_time, services_requested
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'website', 'new', $8, $9, $10, $11, $12, $13)
+                    service_type, vehicle_info, message, source, status
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'website', 'new')
                 RETURNING *
             `, [
                 firstName,
@@ -184,13 +193,7 @@ router.post('/', leadLimiter, async (req, res) => {
                 phone,
                 serviceType,
                 vehicleInfo,
-                message,
-                city,
-                postcode,
-                serviceLocation,
-                preferredDate,
-                preferredTime,
-                JSON.stringify(servicesRequested)
+                comprehensiveMessage
             ]);
             
             return res.status(201).json({
