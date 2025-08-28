@@ -322,6 +322,9 @@ class AdminApp {
                 case 'companies':
                     await this.loadCompanies();
                     break;
+                case 'persons':
+                    await this.loadPersons();
+                    break;
                 case 'settings':
                     console.log('🔧 About to load settings...');
                     await this.loadSettings();

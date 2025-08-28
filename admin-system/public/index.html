@@ -120,6 +120,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="#persons" data-section="persons">
+                                <i class="bi bi-people-fill"></i> Personen
+                                <span class="badge bg-info ms-1">Nieuw</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="#services" data-section="services">
                                 <i class="bi bi-list-check"></i> Prijslijst
                             </a>
@@ -359,6 +365,118 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- PERSONS SECTION - NEW UNIFIED MANAGEMENT -->
+                <div id="persons-section" class="content-section d-none">
+                    <h1><i class="bi bi-people-fill text-success"></i> Unified Personen Beheer</h1>
+                    
+                    <!-- Controls -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <label for="personTypeFilter" class="form-label">Type:</label>
+                            <select id="personTypeFilter" class="form-select">
+                                <option value="all">Alle Personen</option>
+                                <option value="customers">Klanten</option>
+                                <option value="individual_customers">Particuliere Klanten</option>
+                                <option value="business_customers">Zakelijke Klanten</option>
+                                <option value="leads">Leads</option>
+                                <option value="individual_leads">Particuliere Leads</option>
+                                <option value="business_leads">Zakelijke Leads</option>
+                                <option value="contacts">Contactpersonen</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="searchPersons" class="form-label">Zoeken:</label>
+                            <input type="text" id="searchPersons" class="form-control" placeholder="Naam, email, telefoon...">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="companyFilter" class="form-label">Bedrijf:</label>
+                            <select id="companyFilter" class="form-select">
+                                <option value="">Alle Bedrijven</option>
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="addPersonBtn" class="btn btn-success w-100">
+                                <i class="bi bi-person-plus"></i> Nieuwe Persoon
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card text-center border-success">
+                                <div class="card-body">
+                                    <i class="bi bi-people-fill display-4 text-success"></i>
+                                    <h3 id="totalPersons" class="mt-2">0</h3>
+                                    <p class="text-muted mb-0">Totaal Personen</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-primary">
+                                <div class="card-body">
+                                    <i class="bi bi-person-check-fill display-4 text-primary"></i>
+                                    <h3 id="totalCustomers" class="mt-2">0</h3>
+                                    <p class="text-muted mb-0">Klanten</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-warning">
+                                <div class="card-body">
+                                    <i class="bi bi-person-plus-fill display-4 text-warning"></i>
+                                    <h3 id="totalLeads" class="mt-2">0</h3>
+                                    <p class="text-muted mb-0">Leads</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center border-info">
+                                <div class="card-body">
+                                    <i class="bi bi-building display-4 text-info"></i>
+                                    <h3 id="totalContacts" class="mt-2">0</h3>
+                                    <p class="text-muted mb-0">Contactpersonen</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Persons Table -->
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="personsTable" class="table table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAllPersons" class="form-check-input"></th>
+                                            <th>Naam</th>
+                                            <th>Email</th>
+                                            <th>Telefoon</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Bedrijven</th>
+                                            <th>Voertuigen</th>
+                                            <th>Laatste Activiteit</th>
+                                            <th>Acties</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="personsTableBody">
+                                        <!-- Populated via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Pagination -->
+                            <nav class="mt-3">
+                                <ul id="personsPagination" class="pagination justify-content-center">
+                                    <!-- Populated via JavaScript -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
 
                 <div id="expenses-section" class="content-section d-none">
                     <h1><i class="bi bi-receipt text-danger"></i> Inkoop Beheer</h1>
@@ -437,5 +555,6 @@
     <!-- Fallback script disabled - main admin.js handles everything -->
     
     <script src="/admin/js/admin.js?v=20250828140000"></script>
+    <script src="/admin/js/persons-management.js?v=20250828160000"></script>
 </body>
 </html>

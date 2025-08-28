@@ -151,6 +151,11 @@ app.use('/api/expenses', verifyToken, require('./routes/expenses'));
 app.use('/api/suppliers', verifyToken, require('./routes/suppliers'));
 app.use('/api/reports', verifyToken, require('./routes/reports'));
 
+// NEW UNIFIED PERSON MANAGEMENT SYSTEM
+app.use('/api/persons', verifyToken, require('./routes/persons'));
+app.use('/api/person-company-roles', verifyToken, require('./routes/person-company-roles'));
+app.use('/api/vehicles-unified', verifyToken, require('./routes/vehicles-unified'));
+
 // Website lead endpoint (zonder auth voor website formulier)
 app.use('/api/website-leads', require('./routes/websiteLeads'));
 
