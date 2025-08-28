@@ -7016,11 +7016,16 @@ class AdminApp {
     async handleAddCompanySubmit() {
         const saveBtn = document.getElementById('saveCompanyBtn');
         const originalText = saveBtn.innerHTML;
+        const form = document.getElementById('addCompanyForm');
+        
+        // Check if this is an edit operation
+        const isEdit = form && form.dataset.isEdit === 'true';
+        const companyId = form ? form.dataset.companyId : null;
         
         try {
             // Show loading state
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Opslaan...';
+            saveBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> ${isEdit ? 'Bijwerken...' : 'Opslaan...'}`;
 
             // Collect form data
             const formData = {
@@ -7051,13 +7056,15 @@ class AdminApp {
                 throw new Error('Bedrijfsnaam is verplicht');
             }
 
-            console.log('Creating company with data:', formData);
+            console.log(`${isEdit ? 'Updating' : 'Creating'} company with data:`, formData);
 
             // Submit to API
-            const newCompany = await this.apiCall('POST', '/api/companies', formData);
+            const result = isEdit 
+                ? await this.apiCall('PUT', `/api/companies/${companyId}`, formData)
+                : await this.apiCall('POST', '/api/companies', formData);
             
-            console.log('Company created:', newCompany);
-            this.showToast('✅ Bedrijf succesvol toegevoegd!', 'success');
+            console.log(`Company ${isEdit ? 'updated' : 'created'}:`, result);
+            this.showToast(`✅ Bedrijf succesvol ${isEdit ? 'bijgewerkt' : 'toegevoegd'}!`, 'success');
 
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('addCompanyModal'));
@@ -7067,8 +7074,8 @@ class AdminApp {
             await this.loadCompanies();
 
         } catch (error) {
-            console.error('Error creating company:', error);
-            this.showToast(`❌ Fout bij aanmaken bedrijf: ${error.message}`, 'error');
+            console.error(`Error ${isEdit ? 'updating' : 'creating'} company:`, error);
+            this.showToast(`❌ Fout bij ${isEdit ? 'bijwerken' : 'aanmaken'} bedrijf: ${error.message}`, 'error');
         } finally {
             // Reset button state
             saveBtn.disabled = false;
@@ -7376,8 +7383,91 @@ class AdminApp {
         `;
     }
 
-    editCompany(companyId) {
-        this.showToast(`Bedrijf ${companyId} bewerken komt binnenkort!`, 'info');
+    async editCompany(companyId) {
+        try {
+            // Fetch company data
+            const company = await this.apiCall('GET', `/api/companies/${companyId}`);
+            
+            // Close any existing company view modal
+            const existingViewModal = document.getElementById('viewCompanyModal');
+            if (existingViewModal) {
+                const modal = bootstrap.Modal.getInstance(existingViewModal);
+                if (modal) modal.hide();
+            }
+
+            // Show add company modal (reuse the same modal)
+            this.showAddCompanyModal();
+            
+            // Wait a bit for modal to be created, then populate with existing data
+            setTimeout(() => {
+                // Update modal title
+                const modalTitle = document.querySelector('#addCompanyModal .modal-title');
+                if (modalTitle) {
+                    modalTitle.innerHTML = '<i class="bi bi-pencil text-warning"></i> Bedrijf Bewerken';
+                }
+                
+                // Update save button
+                const saveBtn = document.getElementById('saveCompanyBtn');
+                if (saveBtn) {
+                    saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Wijzigingen Opslaan';
+                }
+                
+                // Populate form fields
+                const fields = {
+                    'companyName': company.company_name,
+                    'vatNumber': company.vat_number,
+                    'registrationNumber': company.registration_number,
+                    'industry': company.industry,
+                    'website': company.website,
+                    'email': company.email,
+                    'phone': company.phone,
+                    'address': company.address,
+                    'postalCode': company.postal_code,
+                    'city': company.city,
+                    'country': company.country,
+                    'notes': company.notes
+                };
+                
+                // Fill in the form
+                Object.entries(fields).forEach(([fieldId, value]) => {
+                    const field = document.getElementById(fieldId);
+                    if (field && value !== null && value !== undefined) {
+                        field.value = value;
+                    }
+                });
+                
+                // Handle billing address
+                if (company.billing_address && company.billing_address !== company.address) {
+                    const billingToggle = document.getElementById('differentBillingAddress');
+                    const billingFields = document.getElementById('billingAddressFields');
+                    if (billingToggle && billingFields) {
+                        billingToggle.checked = true;
+                        billingFields.classList.remove('d-none');
+                        
+                        // Fill billing address fields
+                        const billingAddress = document.getElementById('billingAddress');
+                        const billingPostalCode = document.getElementById('billingPostalCode');
+                        const billingCity = document.getElementById('billingCity');
+                        
+                        if (billingAddress) billingAddress.value = company.billing_address || '';
+                        if (billingPostalCode) billingPostalCode.value = company.billing_postal_code || '';
+                        if (billingCity) billingCity.value = company.billing_city || '';
+                    }
+                }
+                
+                // Store company ID for update instead of create
+                const form = document.getElementById('addCompanyForm');
+                if (form) {
+                    form.dataset.companyId = companyId;
+                    form.dataset.isEdit = 'true';
+                }
+                
+            }, 100);
+
+        } catch (error) {
+            console.error('Error loading company for edit:', error);
+            this.showToast(`❌ Fout bij laden bedrijfsgegevens: ${error.message}`, 'error');
+        }
     }
 
     async deleteCompany(companyId) {
