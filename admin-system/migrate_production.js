@@ -20,7 +20,10 @@ async function runMigration() {
         console.log('🔗 Connecting to production database...');
         await client.connect();
         
-        console.log('📊 Running invoice schema migration...');
+        console.log('📊 Running database schema migrations...');
+        
+        // === INVOICE MIGRATIONS ===
+        console.log('📋 Running invoice migrations...');
         
         // Add missing columns to invoices
         await client.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS description TEXT`);
@@ -34,6 +37,39 @@ async function runMigration() {
         
         await client.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_percentage DECIMAL(5,2) DEFAULT 21`);
         console.log('✅ Added tax_percentage column');
+
+        // === SERVICES MIGRATIONS ===
+        console.log('🔧 Running services migrations...');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS price_range_min DECIMAL(10,2)`);
+        console.log('✅ Added price_range_min column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS price_range_max DECIMAL(10,2)`);
+        console.log('✅ Added price_range_max column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb`);
+        console.log('✅ Added features column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS icon VARCHAR(100)`);
+        console.log('✅ Added icon column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)`);
+        console.log('✅ Added image_url column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS duration_text VARCHAR(200)`);
+        console.log('✅ Added duration_text column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS package_type VARCHAR(50)`);
+        console.log('✅ Added package_type column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS subtitle VARCHAR(255)`);
+        console.log('✅ Added subtitle column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false`);
+        console.log('✅ Added featured column');
+        
+        await client.query(`ALTER TABLE services ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
+        console.log('✅ Added sort_order column');
         
         // Rename subtotal to subtotal_amount if it exists
         const checkSubtotal = await client.query(`
@@ -60,10 +96,25 @@ async function runMigration() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_appointments_color ON appointments(color)`);
         console.log('✅ Added index for appointment colors');
         
+        // === ADD INDICES FOR SERVICES ===
+        console.log('📑 Adding indices for services...');
+        
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_services_category ON services(category)`);
+        console.log('✅ Added index for services category');
+        
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_services_active ON services(active)`);
+        console.log('✅ Added index for services active');
+        
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_services_package_type ON services(package_type)`);
+        console.log('✅ Added index for services package_type');
+        
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_services_featured ON services(featured)`);
+        console.log('✅ Added index for services featured');
+        
         console.log('🎉 Migration completed successfully!');
         
         // Verify schema
-        const result = await client.query(`
+        const invoiceSchema = await client.query(`
             SELECT column_name, data_type, is_nullable 
             FROM information_schema.columns 
             WHERE table_name='invoices' 
@@ -71,7 +122,19 @@ async function runMigration() {
         `);
         
         console.log('\n📋 Current invoices table schema:');
-        result.rows.forEach(row => {
+        invoiceSchema.rows.forEach(row => {
+            console.log(`  - ${row.column_name} (${row.data_type})`);
+        });
+
+        const servicesSchema = await client.query(`
+            SELECT column_name, data_type, is_nullable 
+            FROM information_schema.columns 
+            WHERE table_name='services' 
+            ORDER BY ordinal_position
+        `);
+        
+        console.log('\n🔧 Current services table schema:');
+        servicesSchema.rows.forEach(row => {
             console.log(`  - ${row.column_name} (${row.data_type})`);
         });
         
