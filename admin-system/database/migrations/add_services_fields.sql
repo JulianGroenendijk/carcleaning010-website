@@ -10,6 +10,7 @@ ADD COLUMN IF NOT EXISTS image_url VARCHAR(500),
 ADD COLUMN IF NOT EXISTS duration_text VARCHAR(200),
 ADD COLUMN IF NOT EXISTS package_type VARCHAR(50), -- 'signature', 'individual', 'addon'
 ADD COLUMN IF NOT EXISTS subtitle VARCHAR(255),
+ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
 
 -- Create projects table for projecten.html
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS testimonials (
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
 CREATE INDEX IF NOT EXISTS idx_services_active ON services(active);
 CREATE INDEX IF NOT EXISTS idx_services_package_type ON services(package_type);
+CREATE INDEX IF NOT EXISTS idx_services_featured ON services(featured);
 CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
 CREATE INDEX IF NOT EXISTS idx_projects_active ON projects(active);
 CREATE INDEX IF NOT EXISTS idx_projects_featured ON projects(featured);
