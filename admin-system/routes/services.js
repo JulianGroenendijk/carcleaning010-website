@@ -120,8 +120,7 @@ router.put('/:id', async (req, res) => {
                 category = COALESCE($3, category),
                 base_price = COALESCE($4, base_price),
                 duration_minutes = COALESCE($5, duration_minutes),
-                active = COALESCE($6, active),
-                updated_at = CURRENT_TIMESTAMP
+                active = COALESCE($6, active)
             WHERE id = $7
             RETURNING *
         `, [name, description, category, base_price, duration_minutes, active, serviceId]);
