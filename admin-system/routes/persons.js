@@ -74,39 +74,15 @@ router.get('/', async (req, res) => {
             queryParams.push(company_id);
         }
 
-        // Build query
+        // Simplified query without complex joins
         const queryText = `
             SELECT 
                 p.*,
-                -- Aggregated company info
-                COALESCE(
-                    json_agg(
-                        json_build_object(
-                            'company_id', c.id,
-                            'company_name', c.name,
-                            'role_type', pcr.role_type,
-                            'job_title', pcr.job_title,
-                            'department', pcr.department,
-                            'is_primary_contact', pcr.is_primary_contact,
-                            'is_billing_contact', pcr.is_billing_contact,
-                            'is_technical_contact', pcr.is_technical_contact
-                        ) ORDER BY pcr.is_primary_contact DESC, c.name
-                    ) FILTER (WHERE pcr.id IS NOT NULL), 
-                    '[]'::json
-                ) as companies,
-                -- Vehicle count
-                (SELECT COUNT(*) FROM vehicles_new v WHERE v.owner_person_id = p.id) as vehicle_count,
-                -- Last activity
-                GREATEST(
-                    p.updated_at,
-                    (SELECT MAX(i.created_at) FROM invoices i WHERE i.person_id = p.id OR i.customer_id = p.id),
-                    (SELECT MAX(a.created_at) FROM appointments a WHERE a.person_id = p.id OR a.customer_id = p.id)
-                ) as last_activity
+                '[]'::json as companies,
+                0 as vehicle_count,
+                p.updated_at as last_activity
             FROM persons p
-            LEFT JOIN person_company_roles pcr ON pcr.person_id = p.id AND pcr.is_active = true
-            LEFT JOIN companies c ON c.id = pcr.company_id AND c.is_active = true
             WHERE ${whereConditions.join(' AND ')}
-            GROUP BY p.id
             ORDER BY p.last_name, p.first_name
             LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
         `;
@@ -117,10 +93,9 @@ router.get('/', async (req, res) => {
 
         // Get total count for pagination
         const countQuery = `
-            SELECT COUNT(DISTINCT p.id) as total
+            SELECT COUNT(*) as total
             FROM persons p
-            LEFT JOIN person_company_roles pcr ON pcr.person_id = p.id AND pcr.is_active = true
-            WHERE ${whereConditions.slice(0, -2).join(' AND ')}  -- Remove LIMIT/OFFSET params
+            WHERE ${whereConditions.join(' AND ')}
         `;
         const countResult = await query(countQuery, queryParams.slice(0, -2));
 
@@ -145,7 +120,7 @@ router.get('/:id', async (req, res) => {
     try {
         const personId = req.params.id;
 
-        // Get person basic info
+        // Simplified person query
         const personQuery = `
             SELECT * FROM persons WHERE id = $1
         `;
@@ -157,78 +132,13 @@ router.get('/:id', async (req, res) => {
 
         const person = personResult.rows[0];
 
-        // Get company roles
-        const rolesQuery = `
-            SELECT 
-                pcr.*,
-                c.name as company_name,
-                c.address as company_address,
-                c.city as company_city
-            FROM person_company_roles pcr
-            JOIN companies c ON c.id = pcr.company_id
-            WHERE pcr.person_id = $1 AND pcr.is_active = true
-            ORDER BY pcr.is_primary_contact DESC, c.name
-        `;
-        const rolesResult = await query(rolesQuery, [personId]);
-
-        // Get owned vehicles
-        const vehiclesQuery = `
-            SELECT v.*, 
-                   pd.first_name || ' ' || pd.last_name as primary_driver_name
-            FROM vehicles_new v
-            LEFT JOIN persons pd ON pd.id = v.primary_driver_id
-            WHERE v.owner_person_id = $1 AND v.is_active = true
-            ORDER BY v.make, v.model
-        `;
-        const vehiclesResult = await query(vehiclesQuery, [personId]);
-
-        // Get vehicle access rights (vehicles they can use but don't own)
-        const accessQuery = `
-            SELECT v.*, va.access_type, va.notes as access_notes,
-                   CASE 
-                       WHEN v.owner_person_id IS NOT NULL THEN p.first_name || ' ' || p.last_name
-                       WHEN v.owner_company_id IS NOT NULL THEN c.name
-                   END as owner_name
-            FROM vehicle_access va
-            JOIN vehicles_new v ON v.id = va.vehicle_id
-            LEFT JOIN persons p ON p.id = v.owner_person_id
-            LEFT JOIN companies c ON c.id = v.owner_company_id
-            WHERE va.person_id = $1 AND v.is_active = true
-            ORDER BY v.make, v.model
-        `;
-        const accessResult = await query(accessQuery, [personId]);
-
-        // Get recent activity
-        const activityQuery = `
-            SELECT 'invoice' as type, 
-                   i.invoice_number as reference,
-                   i.total_amount as amount,
-                   i.status,
-                   i.created_at
-            FROM invoices i 
-            WHERE (i.person_id = $1 OR i.customer_id = $1)
-            
-            UNION ALL
-            
-            SELECT 'appointment' as type,
-                   'Afspraak ' || to_char(a.appointment_date, 'DD-MM-YYYY') as reference,
-                   NULL as amount,
-                   a.status,
-                   a.created_at
-            FROM appointments a
-            WHERE (a.person_id = $1 OR a.customer_id = $1)
-            
-            ORDER BY created_at DESC
-            LIMIT 10
-        `;
-        const activityResult = await query(activityQuery, [personId]);
-
+        // Return basic person info for now
         res.json({
             ...person,
-            companies: rolesResult.rows,
-            owned_vehicles: vehiclesResult.rows,
-            accessible_vehicles: accessResult.rows,
-            recent_activity: activityResult.rows
+            companies: [],
+            owned_vehicles: [],
+            accessible_vehicles: [],
+            recent_activity: []
         });
 
     } catch (error) {
