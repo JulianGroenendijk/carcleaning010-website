@@ -10346,7 +10346,7 @@ Deze actie is omkeerbaar.
                                     <i class="bi bi-eye"></i> Alleen Preview
                                 </button>
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
-                                <button type="submit" class="btn btn-success">
+                                <button type="submit" class="btn btn-success" onclick="adminApp.saveWebsiteEdit('${service.id}')">
                                     <i class="bi bi-check-lg"></i> Website Content Opslaan
                                 </button>
                             </div>
@@ -10362,13 +10362,17 @@ Deze actie is omkeerbaar.
                     modal.remove();
                 });
 
-                // Setup form submission
+                // Setup form submission AFTER modal is shown
                 const form = document.getElementById('websiteEditForm');
                 if (form) {
                     form.addEventListener('submit', async (e) => {
                         e.preventDefault();
+                        console.log('🚀 Form submitted via event listener');
                         await this.saveWebsiteEdit(serviceId);
                     });
+                    console.log('✅ Form submission event listener added');
+                } else {
+                    console.error('❌ websiteEditForm not found');
                 }
 
                 // Add real-time preview updates
