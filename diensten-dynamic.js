@@ -33,7 +33,7 @@ function loadSignaturePackages(services) {
 
     services.forEach((service, index) => {
         const packageClass = index === 0 ? 'premium' : (index === 1 ? 'standard' : 'basic');
-        const badge = index === 0 ? '<span class="package-badge">Meest Gekozen</span>' : '';
+        const badge = service.featured ? '<span class="package-badge">Meest Gekozen</span>' : '';
         
         const packageHTML = `
             <div class="signature-package ${packageClass}">

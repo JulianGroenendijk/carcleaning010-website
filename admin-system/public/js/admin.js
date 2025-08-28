@@ -9910,12 +9910,21 @@ Deze actie is omkeerbaar.
                                 </div>
                             </div>
                             <div class="mb-3">
+                                <label for="service_image_url" class="form-label">Afbeelding URL</label>
+                                <input type="url" class="form-control" id="service_image_url" name="image_url" placeholder="images/service-name.jpg">
+                                <div class="form-text">Relatief pad vanaf website root (bijv. images/premium-detail.jpg)</div>
+                            </div>
+                            <div class="mb-3">
                                 <label for="service_features" class="form-label">Features (één per regel)</label>
                                 <textarea class="form-control" id="service_features" name="features" rows="4" placeholder="Pre-wash en snow foam&#10;Grondige handwas met premium producten&#10;Complete interieur detailing"></textarea>
                             </div>
                             <div class="form-check mb-3">
                                 <input type="checkbox" class="form-check-input" id="service_active" name="active" checked>
                                 <label class="form-check-label" for="service_active">Actief</label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="service_featured" name="featured">
+                                <label class="form-check-label" for="service_featured">Featured (toont "Meest Gekozen" badge)</label>
                             </div>
                         </form>
                     </div>
@@ -10016,12 +10025,21 @@ Deze actie is omkeerbaar.
                                         </div>
                                     </div>
                                     <div class="mb-3">
+                                        <label for="edit_service_image_url" class="form-label">Afbeelding URL</label>
+                                        <input type="url" class="form-control" id="edit_service_image_url" name="image_url" value="${service.image_url || ''}" placeholder="images/service-name.jpg">
+                                        <div class="form-text">Relatief pad vanaf website root (bijv. images/premium-detail.jpg)</div>
+                                    </div>
+                                    <div class="mb-3">
                                         <label for="edit_service_features" class="form-label">Features (één per regel)</label>
                                         <textarea class="form-control" id="edit_service_features" name="features" rows="4" placeholder="Pre-wash en snow foam&#10;Grondige handwas met premium producten&#10;Complete interieur detailing">${Array.isArray(service.features) ? service.features.join('\n') : ''}</textarea>
                                     </div>
                                     <div class="form-check mb-3">
                                         <input type="checkbox" class="form-check-input" id="edit_service_active" name="active" ${service.active ? 'checked' : ''}>
                                         <label class="form-check-label" for="edit_service_active">Actief</label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input type="checkbox" class="form-check-input" id="edit_service_featured" name="featured" ${service.featured ? 'checked' : ''}>
+                                        <label class="form-check-label" for="edit_service_featured">Featured (toont "Meest Gekozen" badge)</label>
                                     </div>
                                 </form>
                             </div>
@@ -10067,7 +10085,9 @@ Deze actie is omkeerbaar.
             duration_text: formData.get('duration_text'),
             features: features,
             icon: formData.get('icon'),
-            active: formData.has('active')
+            image_url: formData.get('image_url'),
+            active: formData.has('active'),
+            featured: formData.has('featured')
         };
 
         try {
@@ -10101,7 +10121,9 @@ Deze actie is omkeerbaar.
             duration_text: formData.get('duration_text'),
             features: features,
             icon: formData.get('icon'),
-            active: formData.has('active')
+            image_url: formData.get('image_url'),
+            active: formData.has('active'),
+            featured: formData.has('featured')
         };
 
         try {
