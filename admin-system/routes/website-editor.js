@@ -136,30 +136,104 @@ router.put('/services/:id', async (req, res) => {
             active
         } = req.body;
 
-        // Process features array
-        const featuresArray = Array.isArray(features) ? features : 
-                            (typeof features === 'string' ? features.split('\n').filter(f => f.trim()) : []);
+        // Check which columns exist in the services table
+        const columnsResult = await query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'services' AND table_schema = 'public'
+        `);
+        
+        const availableColumns = columnsResult.rows.map(row => row.column_name);
+        console.log('Available columns for UPDATE:', availableColumns);
 
-        const result = await query(`
+        // Build dynamic UPDATE query based on available columns
+        const updates = [];
+        const values = [];
+        let paramCount = 0;
+
+        // Always update these base fields
+        if (name !== undefined) {
+            paramCount++;
+            updates.push(`name = $${paramCount}`);
+            values.push(name);
+        }
+
+        if (description !== undefined) {
+            paramCount++;
+            updates.push(`description = $${paramCount}`);
+            values.push(description);
+        }
+
+        if (active !== undefined) {
+            paramCount++;
+            updates.push(`active = $${paramCount}`);
+            values.push(active);
+        }
+
+        // Only update new columns if they exist
+        if (availableColumns.includes('subtitle') && subtitle !== undefined) {
+            paramCount++;
+            updates.push(`subtitle = $${paramCount}`);
+            values.push(subtitle);
+        }
+
+        if (availableColumns.includes('price_range_min') && price_range_min !== undefined) {
+            paramCount++;
+            updates.push(`price_range_min = $${paramCount}`);
+            values.push(price_range_min);
+        }
+
+        if (availableColumns.includes('price_range_max') && price_range_max !== undefined) {
+            paramCount++;
+            updates.push(`price_range_max = $${paramCount}`);
+            values.push(price_range_max);
+        }
+
+        if (availableColumns.includes('duration_text') && duration_text !== undefined) {
+            paramCount++;
+            updates.push(`duration_text = $${paramCount}`);
+            values.push(duration_text);
+        }
+
+        if (availableColumns.includes('features') && features !== undefined) {
+            paramCount++;
+            updates.push(`features = $${paramCount}::jsonb`);
+            const featuresArray = Array.isArray(features) ? features : 
+                                (typeof features === 'string' ? features.split('\n').filter(f => f.trim()) : []);
+            values.push(JSON.stringify(featuresArray));
+        }
+
+        if (availableColumns.includes('image_url') && image_url !== undefined) {
+            paramCount++;
+            updates.push(`image_url = $${paramCount}`);
+            values.push(image_url);
+        }
+
+        if (availableColumns.includes('featured') && featured !== undefined) {
+            paramCount++;
+            updates.push(`featured = $${paramCount}`);
+            values.push(featured);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'Geen velden om bij te werken' });
+        }
+
+        // Add the service ID as the last parameter
+        paramCount++;
+        values.push(serviceId);
+
+        const updateQuery = `
             UPDATE services SET
-                name = COALESCE($1, name),
-                subtitle = COALESCE($2, subtitle),
-                description = COALESCE($3, description),
-                price_range_min = COALESCE($4, price_range_min),
-                price_range_max = COALESCE($5, price_range_max),
-                duration_text = COALESCE($6, duration_text),
-                features = COALESCE($7::jsonb, features),
-                image_url = COALESCE($8, image_url),
-                featured = COALESCE($9, featured),
-                active = COALESCE($10, active)
-            WHERE id = $11
+                ${updates.join(', ')}
+            WHERE id = $${paramCount}
             RETURNING *
-        `, [
-            name, subtitle, description, 
-            price_range_min, price_range_max, duration_text,
-            JSON.stringify(featuresArray),
-            image_url, featured, active, serviceId
-        ]);
+        `;
+
+        console.log('Executing UPDATE query:', updateQuery);
+        console.log('With values:', values);
+
+        const result = await query(updateQuery, values);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Service niet gevonden' });
