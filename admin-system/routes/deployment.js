@@ -618,4 +618,26 @@ router.get('/migrate/status', async (req, res) => {
     }
 });
 
+// Direct migration execution (debug endpoint)
+router.get('/migrate/execute', async (req, res) => {
+    try {
+        const executeMigration = require('../migrate_direct');
+        const result = await executeMigration();
+        
+        res.json({
+            migration_executed: true,
+            result: result,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Direct migration error:', error);
+        res.status(500).json({ 
+            migration_executed: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 module.exports = router;
