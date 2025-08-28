@@ -5506,15 +5506,14 @@ class AdminApp {
     // System Settings
     async loadSettings() {
         console.log('🔧 Loading settings...');
-        const section = document.getElementById('settings-section');
-        
         try {
             // Load current settings
             console.log('📡 Loading system settings...');
             const settings = await this.loadSystemSettings();
             console.log('✅ Settings loaded:', settings);
             
-            section.innerHTML = `
+            const contentEl = document.getElementById('main-content');
+            contentEl.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="bi bi-gear text-secondary"></i> Systeem Instellingen</h1>
                 </div>
@@ -5720,7 +5719,8 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error loading settings:', error);
-            section.innerHTML = `
+            const contentEl = document.getElementById('main-content');
+            contentEl.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="bi bi-gear text-secondary"></i> Systeem Instellingen</h1>
                 </div>
