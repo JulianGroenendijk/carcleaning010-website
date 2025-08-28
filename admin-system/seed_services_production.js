@@ -178,15 +178,14 @@ async function seedServices() {
         for (const service of services) {
             try {
                 await client.query(`
-                    INSERT INTO services (name, description, base_price, duration_minutes, category, active, sort_order)
-                    VALUES ($1, $2, $3, $4, $5, true, $6)
+                    INSERT INTO services (name, description, base_price, duration_minutes, category, active)
+                    VALUES ($1, $2, $3, $4, $5, true)
                 `, [
                     service.name,
                     service.description,
                     service.base_price,
                     service.duration_minutes,
-                    service.category,
-                    insertedCount
+                    service.category
                 ]);
                 insertedCount++;
                 console.log(`  ✅ Added: ${service.name} (${service.category})`);
