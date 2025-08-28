@@ -4425,7 +4425,8 @@ class AdminApp {
             createBtn.innerHTML = '<i class="bi bi-spinner spinner-border spinner-border-sm"></i> Aanmaken...';
 
             // Gather form data
-            const leadId = document.getElementById('leadId').value;
+            const leadIdElement = document.getElementById('leadId');
+            const leadId = leadIdElement ? leadIdElement.value : null;
             const firstName = document.getElementById('quoteFirstName').value;
             const lastName = document.getElementById('quoteLastName').value;
             const email = document.getElementById('quoteEmail').value;
@@ -4692,6 +4693,18 @@ class AdminApp {
                                         <div id="quoteSummary">
                                             <p class="text-muted">Selecteer diensten om de totale prijs te zien</p>
                                         </div>
+                                        <hr>
+                                        ${this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '' ? `
+                                            <div class="d-flex justify-content-between">
+                                                <span>BTW (${this.systemSettings.vat_percentage || 21}%):</span>
+                                                <span id="quoteVAT">${this.formatPrice(0)}</span>
+                                            </div>
+                                            <hr>
+                                        ` : ''}
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold">Totaal:</span>
+                                            <span class="fw-bold fs-5 text-success" id="quoteTotal">${this.formatPrice(0)}</span>
+                                        </div>
                                     </div>
                                 </form>
                             </div>
@@ -4772,8 +4785,35 @@ class AdminApp {
 
             console.log('Creating quote with data:', formData);
 
-            // Create the quote
-            const quote = await this.apiCall('POST', '/api/quotes', formData);
+            // First create a lead from the customer data
+            console.log('Creating lead...');
+            const leadData = {
+                first_name: formData.customer.first_name,
+                last_name: formData.customer.last_name,
+                email: formData.customer.email,
+                phone: formData.customer.phone,
+                service_type: 'Handmatige offerte',
+                vehicle_info: `${formData.vehicle.make || ''} ${formData.vehicle.model || ''} ${formData.vehicle.year || ''}`.trim(),
+                message: `Handmatig aangemaakte lead voor offerte. ${formData.notes || ''}`.trim()
+            };
+
+            const lead = await this.apiCall('POST', '/api/website-leads', leadData);
+            console.log('Lead created:', lead);
+
+            // Convert lead to customer for quote creation
+            console.log('Converting lead to customer...');
+            const customer = await this.apiCall('POST', `/api/leads/${lead.id}/convert-to-customer`);
+            console.log('Customer created from lead:', customer);
+
+            // Create the quote with customer_id
+            const quoteData = {
+                customer_id: customer.id,
+                services: formData.services,
+                valid_until: formData.valid_until,
+                notes: formData.notes
+            };
+
+            const quote = await this.apiCall('POST', '/api/quotes', quoteData);
             console.log('Quote created:', quote);
 
             this.showToast('✅ Offerte succesvol aangemaakt!', 'success');
