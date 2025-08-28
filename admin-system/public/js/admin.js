@@ -4542,12 +4542,13 @@ class AdminApp {
                 'cleaning': '🧽 Reiniging & Onderhoud', 
                 'correction': '✨ Paint Correction',
                 'protection': '🛡️ Bescherming',
-                'maintenance': '🔧 Onderhoud',
+                'restoration': '🔧 Restauratie',
+                'addon': '➕ Extra Services',
                 'other': '📋 Overige Diensten'
             };
 
             // Create categories display in order
-            const categoryOrder = ['signature', 'cleaning', 'correction', 'protection', 'maintenance', 'other'];
+            const categoryOrder = ['signature', 'cleaning', 'correction', 'protection', 'restoration', 'addon', 'other'];
             let servicesHtml = '';
 
             categoryOrder.forEach(category => {
