@@ -8,7 +8,7 @@ BEGIN;
 
 -- 1. NIEUWE CENTRALE PERSONS TABEL
 -- Vervangt: customers, website_leads, company_contacts
-CREATE TABLE persons (
+CREATE TABLE IF NOT EXISTS persons (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE, -- Kan NULL zijn voor contactpersonen zonder email
     first_name VARCHAR(100) NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE persons (
 
 -- 2. PERSON-COMPANY RELATIONSHIPS
 -- Een persoon kan bij meerdere bedrijven werken/contactpersoon zijn
-CREATE TABLE person_company_roles (
+CREATE TABLE IF NOT EXISTS person_company_roles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     person_id UUID NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -74,7 +74,7 @@ CREATE TABLE person_company_roles (
 
 -- 3. NIEUWE VEHICLES STRUCTUUR
 -- Voertuigen kunnen eigendom zijn van personen OF bedrijven
-CREATE TABLE vehicles_new (
+CREATE TABLE IF NOT EXISTS vehicles_new (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
     -- Eigendom: person OR company (niet beide)
@@ -124,7 +124,7 @@ CREATE TABLE vehicles_new (
 
 -- 4. VEHICLE ACCESS RIGHTS
 -- Wie mag een voertuig gebruiken/boeken (naast eigenaar)
-CREATE TABLE vehicle_access (
+CREATE TABLE IF NOT EXISTS vehicle_access (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     vehicle_id UUID NOT NULL REFERENCES vehicles_new(id) ON DELETE CASCADE,
     person_id UUID NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
@@ -140,47 +140,47 @@ CREATE TABLE vehicle_access (
 
 -- Update quotes: kan naar persoon OF bedrijf
 ALTER TABLE quotes 
-    ADD COLUMN person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
-    ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
 
 -- Update appointments: kan voor persoon OF bedrijf
 ALTER TABLE appointments 
-    ADD COLUMN person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
-    ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
 
 -- Update invoices: kan naar persoon OF bedrijf  
 ALTER TABLE invoices 
-    ADD COLUMN person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
-    ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
 
 -- Update certificates
 ALTER TABLE certificates 
-    ADD COLUMN person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
-    ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS person_id UUID REFERENCES persons(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE CASCADE;
 
 -- 6. INDEXES VOOR PERFORMANCE
-CREATE INDEX idx_persons_email ON persons(email) WHERE email IS NOT NULL;
-CREATE INDEX idx_persons_name ON persons(first_name, last_name);
-CREATE INDEX idx_persons_individual_customer ON persons(is_individual_customer) WHERE is_individual_customer = true;
-CREATE INDEX idx_persons_business_customer ON persons(is_business_customer) WHERE is_business_customer = true;
-CREATE INDEX idx_persons_individual_lead ON persons(is_individual_lead) WHERE is_individual_lead = true;
-CREATE INDEX idx_persons_business_lead ON persons(is_business_lead) WHERE is_business_lead = true;
-CREATE INDEX idx_persons_lead_status ON persons(lead_status);
-CREATE INDEX idx_persons_lead_source ON persons(lead_source);
+CREATE INDEX IF NOT EXISTS idx_persons_email ON persons(email) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_persons_name ON persons(first_name, last_name);
+CREATE INDEX IF NOT EXISTS idx_persons_individual_customer ON persons(is_individual_customer) WHERE is_individual_customer = true;
+CREATE INDEX IF NOT EXISTS idx_persons_business_customer ON persons(is_business_customer) WHERE is_business_customer = true;
+CREATE INDEX IF NOT EXISTS idx_persons_individual_lead ON persons(is_individual_lead) WHERE is_individual_lead = true;
+CREATE INDEX IF NOT EXISTS idx_persons_business_lead ON persons(is_business_lead) WHERE is_business_lead = true;
+CREATE INDEX IF NOT EXISTS idx_persons_lead_status ON persons(lead_status);
+CREATE INDEX IF NOT EXISTS idx_persons_lead_source ON persons(lead_source);
 
-CREATE INDEX idx_person_company_roles_person ON person_company_roles(person_id);
-CREATE INDEX idx_person_company_roles_company ON person_company_roles(company_id);
-CREATE INDEX idx_person_company_roles_active ON person_company_roles(is_active) WHERE is_active = true;
-CREATE INDEX idx_person_company_roles_primary ON person_company_roles(is_primary_contact) WHERE is_primary_contact = true;
+CREATE INDEX IF NOT EXISTS idx_person_company_roles_person ON person_company_roles(person_id);
+CREATE INDEX IF NOT EXISTS idx_person_company_roles_company ON person_company_roles(company_id);
+CREATE INDEX IF NOT EXISTS idx_person_company_roles_active ON person_company_roles(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_person_company_roles_primary ON person_company_roles(is_primary_contact) WHERE is_primary_contact = true;
 
-CREATE INDEX idx_vehicles_new_owner_person ON vehicles_new(owner_person_id) WHERE owner_person_id IS NOT NULL;
-CREATE INDEX idx_vehicles_new_owner_company ON vehicles_new(owner_company_id) WHERE owner_company_id IS NOT NULL;
-CREATE INDEX idx_vehicles_new_driver ON vehicles_new(primary_driver_id) WHERE primary_driver_id IS NOT NULL;
-CREATE INDEX idx_vehicles_new_license ON vehicles_new(license_plate);
-CREATE INDEX idx_vehicles_new_active ON vehicles_new(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_vehicles_new_owner_person ON vehicles_new(owner_person_id) WHERE owner_person_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_vehicles_new_owner_company ON vehicles_new(owner_company_id) WHERE owner_company_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_vehicles_new_driver ON vehicles_new(primary_driver_id) WHERE primary_driver_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_vehicles_new_license ON vehicles_new(license_plate);
+CREATE INDEX IF NOT EXISTS idx_vehicles_new_active ON vehicles_new(is_active) WHERE is_active = true;
 
-CREATE INDEX idx_vehicle_access_vehicle ON vehicle_access(vehicle_id);
-CREATE INDEX idx_vehicle_access_person ON vehicle_access(person_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_access_vehicle ON vehicle_access(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_access_person ON vehicle_access(person_id);
 
 -- 7. UPDATE TRIGGERS
 CREATE TRIGGER update_persons_updated_at BEFORE UPDATE ON persons 
