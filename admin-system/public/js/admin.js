@@ -6589,7 +6589,13 @@ class AdminApp {
                     </td>
                     <td class="text-center">
                         <div class="btn-group" role="group">
-                            <button class="btn btn-sm btn-outline-primary" onclick="adminApp.showEditServiceModal('${service.id}')" title="Bewerken">
+                            <button class="btn btn-sm btn-outline-info" onclick="adminApp.showWebsitePreview('${service.id}')" title="Website Preview">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="adminApp.showWebsiteEditModal('${service.id}')" title="Website Bewerken">
+                                <i class="bi bi-globe"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="adminApp.showEditServiceModal('${service.id}')" title="Service Bewerken">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-sm btn-outline-danger" onclick="adminApp.confirmDeleteService('${service.id}', '${service.name.replace(/'/g, "\\'")}')" title="Verwijderen">
@@ -10151,6 +10157,321 @@ Deze actie is omkeerbaar.
         } catch (error) {
             console.error('Error deleting service:', error);
             this.showToast('Fout bij verwijderen service', 'error');
+        }
+    }
+
+    // Website Editor Functions
+    showWebsitePreview(serviceId) {
+        this.apiCall('GET', `/api/website-editor/services`)
+            .then(data => {
+                const service = data.services.find(s => s.id === serviceId);
+                if (!service) {
+                    this.showToast('Service niet gevonden', 'error');
+                    return;
+                }
+
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.id = 'websitePreviewModal';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-eye text-info"></i> Website Preview: ${service.name}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Zo ziet deze service eruit op de website:
+                                </div>
+                                
+                                ${this.renderWebsiteServicePreview(service)}
+                                
+                                <div class="mt-4">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6><i class="bi bi-database"></i> Database Waarden:</h6>
+                                            <table class="table table-sm">
+                                                <tr><th>Naam:</th><td>${service.name}</td></tr>
+                                                <tr><th>Ondertitel:</th><td>${service.subtitle || '<em>Geen</em>'}</td></tr>
+                                                <tr><th>Prijs:</th><td>${service.formatted_price}</td></tr>
+                                                <tr><th>Duur:</th><td>${service.formatted_duration || '<em>Geen</em>'}</td></tr>
+                                                <tr><th>Icon:</th><td>${service.icon || '<em>Geen</em>'}</td></tr>
+                                                <tr><th>Featured:</th><td>${service.featured ? 'Ja (Meest Gekozen)' : 'Nee'}</td></tr>
+                                                <tr><th>Features:</th><td>${service.features_list.length} items</td></tr>
+                                            </table>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6><i class="bi bi-link-45deg"></i> Links:</h6>
+                                            <div class="d-grid gap-2">
+                                                <a href="/admin/diensten.html" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-arrow-up-right-square"></i> Bekijk Live Diensten Pagina
+                                                </a>
+                                                <button class="btn btn-success btn-sm" onclick="adminApp.showWebsiteEditModal('${service.id}')">
+                                                    <i class="bi bi-pencil"></i> Bewerk Website Content
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                                <button type="button" class="btn btn-success" onclick="adminApp.showWebsiteEditModal('${service.id}')">
+                                    <i class="bi bi-pencil"></i> Bewerk Website Content
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+                const bootstrapModal = new bootstrap.Modal(modal);
+                bootstrapModal.show();
+
+                modal.addEventListener('hidden.bs.modal', () => {
+                    modal.remove();
+                });
+            })
+            .catch(error => {
+                console.error('Error loading website preview:', error);
+                this.showToast('Fout bij ophalen website preview', 'error');
+            });
+    }
+
+    showWebsiteEditModal(serviceId) {
+        this.apiCall('GET', `/api/website-editor/services`)
+            .then(data => {
+                const service = data.services.find(s => s.id === serviceId);
+                if (!service) {
+                    this.showToast('Service niet gevonden', 'error');
+                    return;
+                }
+
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.id = 'websiteEditModal';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-globe"></i> Website Content Bewerken: ${service.name}
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-success">
+                                    <i class="bi bi-info-circle"></i> <strong>Website Editor:</strong> Hier pas je alleen de content aan die op de website zichtbaar is. Technische instellingen staan in de normale service editor.
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <form id="websiteEditForm">
+                                            <input type="hidden" id="website_service_id" value="${service.id}">
+                                            
+                                            <div class="mb-3">
+                                                <label for="website_name" class="form-label">Service Naam (zichtbaar op website)</label>
+                                                <input type="text" class="form-control" id="website_name" name="name" value="${service.name}" required>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="website_subtitle" class="form-label">Ondertitel / Korte beschrijving</label>
+                                                <input type="text" class="form-control" id="website_subtitle" name="subtitle" value="${service.subtitle || ''}" placeholder="Bijv. Het complete detailing pakket...">
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="website_description" class="form-label">Volledige beschrijving</label>
+                                                <textarea class="form-control" id="website_description" name="description" rows="4">${service.description || ''}</textarea>
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="website_price_min" class="form-label">Prijs Van (€)</label>
+                                                    <input type="number" class="form-control" id="website_price_min" name="price_range_min" value="${service.price_range_min || ''}" step="1" min="0">
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="website_price_max" class="form-label">Prijs Tot (€)</label>
+                                                    <input type="number" class="form-control" id="website_price_max" name="price_range_max" value="${service.price_range_max || ''}" step="1" min="0">
+                                                    <div class="form-text">Zelfde waarde = vaste prijs (€225), verschillende = bereik (€45-65)</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="website_duration_text" class="form-label">Duur Tekst (zoals getoond op website)</label>
+                                                <input type="text" class="form-control" id="website_duration_text" name="duration_text" value="${service.duration_text || ''}" placeholder="Bijv. Intensieve behandeling: 4-6 uur pure arbeid">
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="website_image_url" class="form-label">Afbeelding (website)</label>
+                                                <input type="text" class="form-control" id="website_image_url" name="image_url" value="${service.image_url || ''}" placeholder="images/service-name.jpg">
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="website_features" class="form-label">Wat is inbegrepen (één per regel)</label>
+                                                <textarea class="form-control" id="website_features" name="features" rows="6" placeholder="Pre-wash en snow foam&#10;Grondige handwas met premium producten&#10;Complete interieur detailing">${service.features_list.join('\\n')}</textarea>
+                                            </div>
+                                            
+                                            <div class="form-check mb-3">
+                                                <input type="checkbox" class="form-check-input" id="website_featured" name="featured" ${service.featured ? 'checked' : ''}>
+                                                <label class="form-check-label" for="website_featured">
+                                                    <strong>Featured</strong> - Toon "Meest Gekozen" badge op website
+                                                </label>
+                                            </div>
+                                            
+                                            <div class="form-check mb-3">
+                                                <input type="checkbox" class="form-check-input" id="website_active" name="active" ${service.active ? 'checked' : ''}>
+                                                <label class="form-check-label" for="website_active">
+                                                    <strong>Actief</strong> - Zichtbaar op website
+                                                </label>
+                                            </div>
+                                        </form>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0"><i class="bi bi-eye"></i> Live Preview</h6>
+                                            </div>
+                                            <div class="card-body" id="websitePreviewContainer">
+                                                ${this.renderWebsiteServicePreview(service)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" onclick="adminApp.showWebsitePreview('${service.id}')">
+                                    <i class="bi bi-eye"></i> Alleen Preview
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                                <button type="button" class="btn btn-success" onclick="adminApp.saveWebsiteEdit('${service.id}')">
+                                    <i class="bi bi-check-lg"></i> Website Content Opslaan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+                const bootstrapModal = new bootstrap.Modal(modal);
+                bootstrapModal.show();
+
+                modal.addEventListener('hidden.bs.modal', () => {
+                    modal.remove();
+                });
+
+                // Add real-time preview updates
+                this.setupWebsiteEditPreview();
+            })
+            .catch(error => {
+                console.error('Error loading website edit modal:', error);
+                this.showToast('Fout bij ophalen website edit modal', 'error');
+            });
+    }
+
+    renderWebsiteServicePreview(service) {
+        const badge = service.featured ? '<span class="badge bg-primary">Meest Gekozen</span>' : '';
+        
+        return `
+            <div class="card" style="max-width: 400px;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <span style="font-size: 1.2em;">${service.icon || '📋'}</span>
+                        <strong>${service.name}</strong>
+                    </div>
+                    ${badge}
+                </div>
+                ${service.image_url ? `<img src="${service.image_url}" class="card-img-top" alt="${service.name}" style="height: 150px; object-fit: cover;">` : ''}
+                <div class="card-body">
+                    ${service.subtitle ? `<p class="text-muted"><em>${service.subtitle}</em></p>` : ''}
+                    ${service.description ? `<p class="small">${service.description}</p>` : ''}
+                    
+                    ${service.features_list.length > 0 ? `
+                        <h6>Wat is inbegrepen:</h6>
+                        <ul class="small">
+                            ${service.features_list.map(f => `<li>${f}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                    
+                    ${service.formatted_duration ? `<p class="text-info small">⏱️ ${service.formatted_duration}</p>` : ''}
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">Vanaf</span>
+                        <h5 class="text-primary mb-0">${service.formatted_price}</h5>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    setupWebsiteEditPreview() {
+        // Real-time preview updates when typing
+        const form = document.getElementById('websiteEditForm');
+        const previewContainer = document.getElementById('websitePreviewContainer');
+        
+        if (!form || !previewContainer) return;
+        
+        const updatePreview = () => {
+            const formData = new FormData(form);
+            const features = formData.get('features') ? formData.get('features').split('\\n').filter(f => f.trim()) : [];
+            
+            const previewService = {
+                name: formData.get('name') || 'Service Naam',
+                subtitle: formData.get('subtitle'),
+                description: formData.get('description'),
+                formatted_price: this.formatPreviewPrice(formData.get('price_range_min'), formData.get('price_range_max')),
+                formatted_duration: formData.get('duration_text'),
+                icon: '📋', // Would need to get from original service
+                image_url: formData.get('image_url'),
+                featured: formData.has('featured'),
+                features_list: features
+            };
+            
+            previewContainer.innerHTML = this.renderWebsiteServicePreview(previewService);
+        };
+        
+        // Add event listeners for real-time updates
+        form.addEventListener('input', updatePreview);
+        form.addEventListener('change', updatePreview);
+    }
+
+    formatPreviewPrice(min, max) {
+        if (!min && !max) return 'Op aanvraag';
+        if (!max || min === max) return `€${min || '0'}`;
+        return `€${min} - €${max}`;
+    }
+
+    async saveWebsiteEdit(serviceId) {
+        const form = document.getElementById('websiteEditForm');
+        const formData = new FormData(form);
+        
+        // Process features
+        const featuresText = formData.get('features');
+        const features = featuresText ? featuresText.split('\\n').filter(f => f.trim()) : [];
+        
+        const websiteData = {
+            name: formData.get('name'),
+            subtitle: formData.get('subtitle'),
+            description: formData.get('description'),
+            price_range_min: formData.get('price_range_min') ? parseInt(formData.get('price_range_min')) : null,
+            price_range_max: formData.get('price_range_max') ? parseInt(formData.get('price_range_max')) : null,
+            duration_text: formData.get('duration_text'),
+            image_url: formData.get('image_url'),
+            features: features,
+            featured: formData.has('featured'),
+            active: formData.has('active')
+        };
+
+        try {
+            await this.apiCall('PUT', `/api/website-editor/services/${serviceId}`, websiteData);
+            this.showToast('Website content succesvol bijgewerkt! 🎉', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('websiteEditModal')).hide();
+            this.loadServices(); // Refresh the table
+        } catch (error) {
+            console.error('Error updating website content:', error);
+            this.showToast('Fout bij bijwerken website content', 'error');
         }
     }
 

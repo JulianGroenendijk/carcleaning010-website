@@ -172,6 +172,7 @@ app.use('/api/suppliers', verifyToken, require('./routes/suppliers'));
 app.use('/api/reports', verifyToken, require('./routes/reports'));
 app.use('/api/projects', verifyToken, require('./routes/projects'));
 app.use('/api/service-addons', verifyToken, require('./routes/service-addons'));
+app.use('/api/website-editor', verifyToken, require('./routes/website-editor'));
 
 // NEW UNIFIED PERSON MANAGEMENT SYSTEM
 app.use('/api/persons', verifyToken, require('./routes/persons'));
