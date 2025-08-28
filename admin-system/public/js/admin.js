@@ -6650,9 +6650,102 @@ class AdminApp {
                 </div>
             `;
 
+            // Setup event listeners for search and filter
+            this.setupCompaniesEventListeners();
+
         } catch (error) {
             console.error('Error loading companies:', error);
             this.showToast('Fout bij laden bedrijven', 'error');
+        }
+    }
+
+    setupCompaniesEventListeners() {
+        // Search input with debounce
+        const searchInput = document.getElementById('searchCompanies');
+        if (searchInput) {
+            searchInput.removeEventListener('input', this.boundSearchCompanies);
+            this.boundSearchCompanies = this.debounce(() => this.searchAndFilterCompanies(), 300);
+            searchInput.addEventListener('input', this.boundSearchCompanies);
+        }
+
+        // Sort dropdown
+        const sortSelect = document.getElementById('sortCompanies');
+        if (sortSelect) {
+            sortSelect.removeEventListener('change', this.boundSortCompanies);
+            this.boundSortCompanies = () => this.searchAndFilterCompanies();
+            sortSelect.addEventListener('change', this.boundSortCompanies);
+        }
+
+        console.log('✅ Companies event listeners setup');
+    }
+
+    async searchAndFilterCompanies() {
+        try {
+            const searchInput = document.getElementById('searchCompanies');
+            const sortSelect = document.getElementById('sortCompanies');
+            
+            const searchTerm = searchInput ? searchInput.value.trim() : '';
+            const sortBy = sortSelect ? sortSelect.value : 'company_name';
+            
+            console.log('Searching companies:', { searchTerm, sortBy });
+            
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: 1,
+                limit: 50,
+                sort_by: sortBy,
+                sort_order: 'ASC'
+            });
+            
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
+            
+            // Fetch filtered data
+            const companies = await this.apiCall('GET', `/api/companies?${params.toString()}`);
+            
+            // Update table content
+            const tableBody = document.getElementById('companies-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = this.renderCompaniesTable(companies.companies || []);
+            }
+
+            // Update company count badge
+            const countBadge = document.querySelector('#companies-section .badge');
+            if (countBadge) {
+                countBadge.textContent = companies.companies?.length || 0;
+            }
+            
+            // Update pagination if exists
+            const cardFooter = document.querySelector('#companies-section .card-footer');
+            if (cardFooter && companies.pagination) {
+                cardFooter.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">
+                            ${searchTerm ? `${companies.pagination.total_count} resultaten voor "${searchTerm}"` : `Totaal: ${companies.pagination.total_count} bedrijven`}
+                        </span>
+                        <div class="btn-group" role="group">
+                            ${companies.pagination.has_prev ? 
+                                `<button class="btn btn-outline-primary btn-sm" onclick="adminApp.loadCompaniesPage(${companies.pagination.current_page - 1})">
+                                    <i class="bi bi-chevron-left"></i> Vorige
+                                </button>` : ''
+                            }
+                            <span class="btn btn-outline-secondary btn-sm disabled">
+                                Pagina ${companies.pagination.current_page} van ${companies.pagination.total_pages}
+                            </span>
+                            ${companies.pagination.has_next ? 
+                                `<button class="btn btn-outline-primary btn-sm" onclick="adminApp.loadCompaniesPage(${companies.pagination.current_page + 1})">
+                                    Volgende <i class="bi bi-chevron-right"></i>
+                                </button>` : ''
+                            }
+                        </div>
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            console.error('Error searching companies:', error);
+            this.showToast(`❌ Fout bij zoeken: ${error.message}`, 'error');
         }
     }
 
@@ -6718,23 +6811,676 @@ class AdminApp {
 
     // Company management functions
     showAddCompanyModal() {
-        this.showToast('Bedrijf toevoegen functionaliteit komt binnenkort!', 'info');
+        // Remove existing modal if present
+        const existingModal = document.getElementById('addCompanyModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Create modal HTML
+        const modalHTML = `
+            <div class="modal fade" id="addCompanyModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-building-add text-primary"></i> Nieuw Bedrijf Toevoegen
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="addCompanyForm">
+                            <div class="modal-body">
+                                <div class="row">
+                                    <!-- Bedrijfsgegevens -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="bi bi-info-circle"></i> Bedrijfsgegevens
+                                        </h6>
+                                        
+                                        <div class="mb-3">
+                                            <label for="companyName" class="form-label">
+                                                Bedrijfsnaam <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" class="form-control" id="companyName" required>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="vatNumber" class="form-label">BTW-nummer</label>
+                                                    <input type="text" class="form-control" id="vatNumber" 
+                                                           placeholder="NL123456789B01">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="registrationNumber" class="form-label">KvK-nummer</label>
+                                                    <input type="text" class="form-control" id="registrationNumber">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="industry" class="form-label">Bedrijfstak</label>
+                                            <input type="text" class="form-control" id="industry" 
+                                                   placeholder="Automotive Services">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="website" class="form-label">Website</label>
+                                            <input type="url" class="form-control" id="website" 
+                                                   placeholder="https://example.com">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Contact & Adres -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="bi bi-geo-alt"></i> Contact & Adres
+                                        </h6>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="email" class="form-label">Email</label>
+                                                    <input type="email" class="form-control" id="email">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="phone" class="form-label">Telefoon</label>
+                                                    <input type="tel" class="form-control" id="phone">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="address" class="form-label">Adres</label>
+                                            <textarea class="form-control" id="address" rows="2"></textarea>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="postalCode" class="form-label">Postcode</label>
+                                                    <input type="text" class="form-control" id="postalCode">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <div class="mb-3">
+                                                    <label for="city" class="form-label">Plaats</label>
+                                                    <input type="text" class="form-control" id="city">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="country" class="form-label">Land</label>
+                                            <input type="text" class="form-control" id="country" value="Nederland">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Facturatieadres -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="differentBillingAddress">
+                                            <label class="form-check-label" for="differentBillingAddress">
+                                                Afwijkend facturatieadres
+                                            </label>
+                                        </div>
+                                        
+                                        <div id="billingAddressFields" class="d-none">
+                                            <h6 class="text-muted mb-3">
+                                                <i class="bi bi-receipt"></i> Facturatieadres
+                                            </h6>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="billingAddress" class="form-label">Facturatieadres</label>
+                                                        <textarea class="form-control" id="billingAddress" rows="2"></textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-3">
+                                                        <label for="billingPostalCode" class="form-label">Postcode</label>
+                                                        <input type="text" class="form-control" id="billingPostalCode">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-3">
+                                                        <label for="billingCity" class="form-label">Plaats</label>
+                                                        <input type="text" class="form-control" id="billingCity">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Notities -->
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="mb-3">
+                                            <label for="notes" class="form-label">Notities</label>
+                                            <textarea class="form-control" id="notes" rows="3" 
+                                                      placeholder="Optionele notities over dit bedrijf..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    Annuleren
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="saveCompanyBtn">
+                                    <i class="bi bi-check-circle"></i> Bedrijf Opslaan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Setup event listeners
+        const modal = document.getElementById('addCompanyModal');
+        const form = document.getElementById('addCompanyForm');
+        const billingToggle = document.getElementById('differentBillingAddress');
+        const billingFields = document.getElementById('billingAddressFields');
+
+        // Toggle billing address fields
+        billingToggle.addEventListener('change', () => {
+            if (billingToggle.checked) {
+                billingFields.classList.remove('d-none');
+            } else {
+                billingFields.classList.add('d-none');
+            }
+        });
+
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleAddCompanySubmit();
+        });
+
+        // Show modal
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
     }
 
-    viewCompany(companyId) {
-        this.showToast(`Bedrijf ${companyId} bekijken komt binnenkort!`, 'info');
+    async handleAddCompanySubmit() {
+        const saveBtn = document.getElementById('saveCompanyBtn');
+        const originalText = saveBtn.innerHTML;
+        
+        try {
+            // Show loading state
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Opslaan...';
+
+            // Collect form data
+            const formData = {
+                company_name: document.getElementById('companyName').value.trim(),
+                vat_number: document.getElementById('vatNumber').value.trim() || null,
+                registration_number: document.getElementById('registrationNumber').value.trim() || null,
+                industry: document.getElementById('industry').value.trim() || null,
+                website: document.getElementById('website').value.trim() || null,
+                email: document.getElementById('email').value.trim() || null,
+                phone: document.getElementById('phone').value.trim() || null,
+                address: document.getElementById('address').value.trim() || null,
+                postal_code: document.getElementById('postalCode').value.trim() || null,
+                city: document.getElementById('city').value.trim() || null,
+                country: document.getElementById('country').value.trim() || null,
+                notes: document.getElementById('notes').value.trim() || null
+            };
+
+            // Add billing address if different
+            const differentBilling = document.getElementById('differentBillingAddress').checked;
+            if (differentBilling) {
+                formData.billing_address = document.getElementById('billingAddress').value.trim() || null;
+                formData.billing_postal_code = document.getElementById('billingPostalCode').value.trim() || null;
+                formData.billing_city = document.getElementById('billingCity').value.trim() || null;
+            }
+
+            // Validate required fields
+            if (!formData.company_name) {
+                throw new Error('Bedrijfsnaam is verplicht');
+            }
+
+            console.log('Creating company with data:', formData);
+
+            // Submit to API
+            const newCompany = await this.apiCall('POST', '/api/companies', formData);
+            
+            console.log('Company created:', newCompany);
+            this.showToast('✅ Bedrijf succesvol toegevoegd!', 'success');
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addCompanyModal'));
+            if (modal) modal.hide();
+
+            // Reload companies list
+            await this.loadCompanies();
+
+        } catch (error) {
+            console.error('Error creating company:', error);
+            this.showToast(`❌ Fout bij aanmaken bedrijf: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    }
+
+    async viewCompany(companyId) {
+        try {
+            console.log('Loading company details for:', companyId);
+            
+            // Fetch company data
+            const company = await this.apiCall('GET', `/api/companies/${companyId}`);
+            console.log('Company data loaded:', company);
+
+            // Remove existing modal if present
+            const existingModal = document.getElementById('viewCompanyModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Create modal HTML
+            const modalHTML = `
+                <div class="modal fade" id="viewCompanyModal" tabindex="-1">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-building text-primary"></i> 
+                                    ${this.escapeHtml(company.company_name)}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <!-- Company Info Tabs -->
+                                <ul class="nav nav-tabs" id="companyTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info-pane" type="button" role="tab">
+                                            <i class="bi bi-info-circle"></i> Bedrijfsgegevens
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts-pane" type="button" role="tab">
+                                            <i class="bi bi-people"></i> Contactpersonen 
+                                            <span class="badge bg-primary ms-1">${company.contacts?.length || 0}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="vehicles-tab" data-bs-toggle="tab" data-bs-target="#vehicles-pane" type="button" role="tab">
+                                            <i class="bi bi-car-front"></i> Voertuigen 
+                                            <span class="badge bg-success ms-1">${company.vehicles?.length || 0}</span>
+                                        </button>
+                                    </li>
+                                </ul>
+
+                                <div class="tab-content mt-3" id="companyTabContent">
+                                    <!-- Company Info Tab -->
+                                    <div class="tab-pane fade show active" id="info-pane" role="tabpanel">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="text-muted mb-3">Bedrijfsgegevens</h6>
+                                                <div class="mb-3">
+                                                    <strong>Bedrijfsnaam:</strong><br>
+                                                    ${this.escapeHtml(company.company_name)}
+                                                </div>
+                                                ${company.vat_number ? `
+                                                    <div class="mb-3">
+                                                        <strong>BTW-nummer:</strong><br>
+                                                        <code>${this.escapeHtml(company.vat_number)}</code>
+                                                    </div>
+                                                ` : ''}
+                                                ${company.registration_number ? `
+                                                    <div class="mb-3">
+                                                        <strong>KvK-nummer:</strong><br>
+                                                        ${this.escapeHtml(company.registration_number)}
+                                                    </div>
+                                                ` : ''}
+                                                ${company.industry ? `
+                                                    <div class="mb-3">
+                                                        <strong>Bedrijfstak:</strong><br>
+                                                        ${this.escapeHtml(company.industry)}
+                                                    </div>
+                                                ` : ''}
+                                                ${company.website ? `
+                                                    <div class="mb-3">
+                                                        <strong>Website:</strong><br>
+                                                        <a href="${this.escapeHtml(company.website)}" target="_blank" class="text-decoration-none">
+                                                            ${this.escapeHtml(company.website)} <i class="bi bi-box-arrow-up-right"></i>
+                                                        </a>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="text-muted mb-3">Contactgegevens</h6>
+                                                ${company.email ? `
+                                                    <div class="mb-3">
+                                                        <strong>Email:</strong><br>
+                                                        <a href="mailto:${company.email}" class="text-decoration-none">
+                                                            ${this.escapeHtml(company.email)}
+                                                        </a>
+                                                    </div>
+                                                ` : ''}
+                                                ${company.phone ? `
+                                                    <div class="mb-3">
+                                                        <strong>Telefoon:</strong><br>
+                                                        <a href="tel:${company.phone}" class="text-decoration-none">
+                                                            ${this.escapeHtml(company.phone)}
+                                                        </a>
+                                                    </div>
+                                                ` : ''}
+                                                ${company.address ? `
+                                                    <div class="mb-3">
+                                                        <strong>Adres:</strong><br>
+                                                        ${this.escapeHtml(company.address)}<br>
+                                                        ${company.postal_code || ''} ${company.city || ''}<br>
+                                                        ${company.country || ''}
+                                                    </div>
+                                                ` : ''}
+                                                ${(company.billing_address && company.billing_address !== company.address) ? `
+                                                    <div class="mb-3">
+                                                        <strong>Facturatieadres:</strong><br>
+                                                        ${this.escapeHtml(company.billing_address)}<br>
+                                                        ${company.billing_postal_code || ''} ${company.billing_city || ''}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                        ${company.notes ? `
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <h6 class="text-muted mb-3">Notities</h6>
+                                                    <div class="bg-light p-3 rounded">
+                                                        ${this.escapeHtml(company.notes).replace(/\n/g, '<br>')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+
+                                    <!-- Contacts Tab -->
+                                    <div class="tab-pane fade" id="contacts-pane" role="tabpanel">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0">Contactpersonen</h6>
+                                            <button class="btn btn-sm btn-primary" onclick="adminApp.showAddContactModal('${company.id}')">
+                                                <i class="bi bi-person-plus"></i> Contact Toevoegen
+                                            </button>
+                                        </div>
+                                        ${this.renderContactsList(company.contacts || [])}
+                                    </div>
+
+                                    <!-- Vehicles Tab -->
+                                    <div class="tab-pane fade" id="vehicles-pane" role="tabpanel">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0">Voertuigen</h6>
+                                            <button class="btn btn-sm btn-success" onclick="adminApp.showAddVehicleModal('${company.id}')">
+                                                <i class="bi bi-car-front-fill"></i> Voertuig Toevoegen
+                                            </button>
+                                        </div>
+                                        ${this.renderVehiclesList(company.vehicles || [])}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    Sluiten
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.editCompany('${company.id}')">
+                                    <i class="bi bi-pencil"></i> Bewerken
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add modal to body and show
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const bootstrapModal = new bootstrap.Modal(document.getElementById('viewCompanyModal'));
+            bootstrapModal.show();
+
+        } catch (error) {
+            console.error('Error loading company details:', error);
+            this.showToast(`❌ Fout bij laden bedrijfsgegevens: ${error.message}`, 'error');
+        }
+    }
+
+    renderContactsList(contacts) {
+        if (!contacts || contacts.length === 0) {
+            return `
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-person-x fs-1"></i>
+                    <p>Nog geen contactpersonen toegevoegd</p>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="row">
+                ${contacts.map(contact => `
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-1">
+                                        ${this.escapeHtml(contact.first_name)} ${this.escapeHtml(contact.last_name)}
+                                        ${contact.is_primary_contact ? '<span class="badge bg-primary ms-2">Primair</span>' : ''}
+                                    </h6>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" onclick="adminApp.editContact('${contact.id}')">
+                                                <i class="bi bi-pencil"></i> Bewerken
+                                            </a></li>
+                                            <li><a class="dropdown-item text-danger" onclick="adminApp.deleteContact('${contact.id}')">
+                                                <i class="bi bi-trash"></i> Verwijderen
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                ${contact.job_title ? `<p class="text-muted mb-1">${this.escapeHtml(contact.job_title)}</p>` : ''}
+                                ${contact.department ? `<p class="text-muted small mb-2">${this.escapeHtml(contact.department)}</p>` : ''}
+                                ${contact.email ? `
+                                    <p class="mb-1">
+                                        <i class="bi bi-envelope"></i> 
+                                        <a href="mailto:${contact.email}" class="text-decoration-none">${this.escapeHtml(contact.email)}</a>
+                                    </p>
+                                ` : ''}
+                                ${contact.phone ? `
+                                    <p class="mb-1">
+                                        <i class="bi bi-telephone"></i> 
+                                        <a href="tel:${contact.phone}" class="text-decoration-none">${this.escapeHtml(contact.phone)}</a>
+                                    </p>
+                                ` : ''}
+                                ${contact.mobile ? `
+                                    <p class="mb-1">
+                                        <i class="bi bi-phone"></i> 
+                                        <a href="tel:${contact.mobile}" class="text-decoration-none">${this.escapeHtml(contact.mobile)}</a>
+                                    </p>
+                                ` : ''}
+                                <div class="mt-2">
+                                    ${contact.is_billing_contact ? '<span class="badge bg-success me-1">Facturatie</span>' : ''}
+                                    ${contact.is_technical_contact ? '<span class="badge bg-info">Technisch</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderVehiclesList(vehicles) {
+        if (!vehicles || vehicles.length === 0) {
+            return `
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-car-front fs-1"></i>
+                    <p>Nog geen voertuigen geregistreerd</p>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="row">
+                ${vehicles.map(vehicle => `
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-1">
+                                        ${this.escapeHtml(vehicle.make || '')} ${this.escapeHtml(vehicle.model || '')}
+                                    </h6>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" onclick="adminApp.editVehicle('${vehicle.id}')">
+                                                <i class="bi bi-pencil"></i> Bewerken
+                                            </a></li>
+                                            <li><a class="dropdown-item text-danger" onclick="adminApp.deleteVehicle('${vehicle.id}')">
+                                                <i class="bi bi-trash"></i> Verwijderen
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                ${vehicle.year ? `<p class="text-muted mb-1">Bouwjaar: ${vehicle.year}</p>` : ''}
+                                ${vehicle.license_plate ? `
+                                    <p class="mb-1">
+                                        <i class="bi bi-card-text"></i> 
+                                        <code>${this.escapeHtml(vehicle.license_plate)}</code>
+                                    </p>
+                                ` : ''}
+                                ${vehicle.color ? `<p class="mb-1"><i class="bi bi-palette"></i> ${this.escapeHtml(vehicle.color)}</p>` : ''}
+                                ${vehicle.primary_driver ? `<p class="mb-1"><i class="bi bi-person"></i> ${this.escapeHtml(vehicle.primary_driver)}</p>` : ''}
+                                ${vehicle.vehicle_type ? `
+                                    <span class="badge bg-secondary">${this.escapeHtml(vehicle.vehicle_type)}</span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
     }
 
     editCompany(companyId) {
         this.showToast(`Bedrijf ${companyId} bewerken komt binnenkort!`, 'info');
     }
 
-    deleteCompany(companyId) {
-        this.showToast(`Bedrijf ${companyId} deactiveren komt binnenkort!`, 'warning');
+    async deleteCompany(companyId) {
+        try {
+            // Get company info for confirmation
+            const company = await this.apiCall('GET', `/api/companies/${companyId}`);
+            
+            const confirmMessage = `
+Weet je zeker dat je het bedrijf "${company.company_name}" wilt deactiveren?
+
+• Het bedrijf wordt niet definitief verwijderd, maar gemarkeerd als inactief
+• Gerelateerde gegevens blijven behouden
+• Het bedrijf kan later weer geactiveerd worden
+
+Deze actie is omkeerbaar.
+            `.trim();
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            console.log('Deactivating company:', companyId);
+
+            // Call API to deactivate company
+            const result = await this.apiCall('DELETE', `/api/companies/${companyId}`);
+            
+            console.log('Company deactivated:', result);
+            this.showToast('✅ Bedrijf succesvol gedeactiveerd', 'success');
+
+            // Reload companies list to reflect changes
+            await this.loadCompanies();
+
+        } catch (error) {
+            console.error('Error deactivating company:', error);
+            this.showToast(`❌ Fout bij deactiveren bedrijf: ${error.message}`, 'error');
+        }
     }
 
-    loadCompaniesPage(page) {
-        this.showToast(`Pagina ${page} laden komt binnenkort!`, 'info');
+    async loadCompaniesPage(page) {
+        try {
+            console.log('Loading companies page:', page);
+            
+            // Get current search and sort parameters
+            const searchInput = document.getElementById('searchCompanies');
+            const sortSelect = document.getElementById('sortCompanies');
+            
+            const searchTerm = searchInput ? searchInput.value.trim() : '';
+            const sortBy = sortSelect ? sortSelect.value : 'company_name';
+            
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: page,
+                limit: 50,
+                sort_by: sortBy,
+                sort_order: 'ASC'
+            });
+            
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
+            
+            // Fetch data
+            const companies = await this.apiCall('GET', `/api/companies?${params.toString()}`);
+            
+            // Update table content
+            const tableBody = document.getElementById('companies-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = this.renderCompaniesTable(companies.companies || []);
+            }
+            
+            // Update pagination
+            const cardFooter = document.querySelector('#companies-section .card-footer');
+            if (cardFooter && companies.pagination) {
+                cardFooter.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">
+                            Totaal: ${companies.pagination.total_count} bedrijven
+                        </span>
+                        <div class="btn-group" role="group">
+                            ${companies.pagination.has_prev ? 
+                                `<button class="btn btn-outline-primary btn-sm" onclick="adminApp.loadCompaniesPage(${companies.pagination.current_page - 1})">
+                                    <i class="bi bi-chevron-left"></i> Vorige
+                                </button>` : ''
+                            }
+                            <span class="btn btn-outline-secondary btn-sm disabled">
+                                Pagina ${companies.pagination.current_page} van ${companies.pagination.total_pages}
+                            </span>
+                            ${companies.pagination.has_next ? 
+                                `<button class="btn btn-outline-primary btn-sm" onclick="adminApp.loadCompaniesPage(${companies.pagination.current_page + 1})">
+                                    Volgende <i class="bi bi-chevron-right"></i>
+                                </button>` : ''
+                            }
+                        </div>
+                    </div>
+                `;
+            }
+            
+            console.log(`Loaded page ${page} with ${companies.companies?.length || 0} companies`);
+            
+        } catch (error) {
+            console.error('Error loading companies page:', error);
+            this.showToast(`❌ Fout bij laden pagina ${page}: ${error.message}`, 'error');
+        }
     }
 
     filterServices() {
