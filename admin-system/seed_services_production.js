@@ -9,8 +9,8 @@ const config = {
     host: 'localhost',
     port: 5432,
     database: 'carcleaning010_db', 
-    user: 'postgres',
-    password: process.env.DB_PASSWORD || 'IDPRO_S3cure!Db_2025'
+    user: 'carcleaning_admin',
+    password: 'Carcleaning010_VPS_2025!'
 };
 
 const services = [
