@@ -340,99 +340,197 @@ class AdminApp {
     }
 
     async loadDashboard() {
+        const section = document.getElementById('dashboard-section');
+        
+        // Show loading state
+        section.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-speedometer2 text-success"></i> Dashboard</h1>
+                <button class="btn btn-outline-primary" id="refresh-dashboard">
+                    <i class="bi bi-arrow-clockwise"></i> Vernieuwen
+                </button>
+            </div>
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Laden...</span>
+                </div>
+                <p class="mt-3">Dashboard wordt geladen...</p>
+            </div>
+        `;
+        
         try {
             // Load dashboard stats
             const stats = await this.apiCall('GET', '/api/dashboard/stats');
-            this.updateDashboardStats(stats);
-
+            
             // Load recent activity
             const activity = await this.apiCall('GET', '/api/dashboard/activity');
-            this.updateRecentActivity(activity);
 
-            // Load new leads
-            const leads = await this.apiCall('GET', '/api/leads?status=new&limit=5');
-            this.updateNewLeads(leads);
+            // Create dashboard HTML
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="bi bi-speedometer2 text-success"></i> Dashboard</h1>
+                    <button class="btn btn-outline-primary" id="refresh-dashboard">
+                        <i class="bi bi-arrow-clockwise"></i> Vernieuwen
+                    </button>
+                </div>
+                
+                <!-- Statistics Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h3 id="stat-customers">${stats.customers || 0}</h3>
+                                        <p class="card-text">Klanten</p>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="bi bi-people fs-1"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h3 id="stat-appointments">${stats.appointments_this_month || 0}</h3>
+                                        <p class="card-text">Afspraken Deze Maand</p>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="bi bi-calendar-event fs-1"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h3 id="stat-quotes">${stats.open_quotes || 0}</h3>
+                                        <p class="card-text">Open Offertes</p>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="bi bi-file-earmark-text fs-1"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h3 id="stat-revenue">${this.formatPrice(stats.revenue_this_month || 0)}</h3>
+                                        <p class="card-text">Omzet Deze Maand</p>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="bi bi-currency-euro fs-1"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <!-- Recent Activity -->
+                    <div class="col-md-8 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-activity text-info"></i> Recente Activiteit
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="recent-activity">
+                                    ${this.renderRecentActivity(activity)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="col-md-4 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-lightning text-warning"></i> Snelle Acties
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-primary" onclick="window.adminApp.showSection('customers')">
+                                        <i class="bi bi-person-plus"></i> Nieuwe Klant
+                                    </button>
+                                    <button class="btn btn-outline-info" onclick="window.adminApp.showSection('quotes')">
+                                        <i class="bi bi-file-earmark-text"></i> Nieuwe Offerte
+                                    </button>
+                                    <button class="btn btn-outline-success" onclick="window.adminApp.showSection('appointments')">
+                                        <i class="bi bi-calendar-plus"></i> Nieuwe Afspraak
+                                    </button>
+                                    <button class="btn btn-outline-warning" onclick="window.adminApp.showSection('invoices')">
+                                        <i class="bi bi-receipt"></i> Nieuwe Factuur
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Setup refresh button
+            document.getElementById('refresh-dashboard')?.addEventListener('click', () => {
+                this.loadDashboard();
+            });
 
         } catch (error) {
             console.error('Error loading dashboard:', error);
-            this.showToast('Fout bij laden dashboard', 'error');
+            section.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Fout bij het laden van dashboard: ${error.message}
+                </div>
+            `;
         }
     }
 
-    updateDashboardStats(stats) {
-        document.getElementById('stat-customers').textContent = stats.customers || '0';
-        document.getElementById('stat-appointments').textContent = stats.appointments_this_month || '0';
-        document.getElementById('stat-quotes').textContent = stats.open_quotes || '0';
-        document.getElementById('stat-revenue').textContent = this.formatCurrency(stats.revenue_this_month || 0);
-    }
-
-    updateRecentActivity(activities) {
-        const container = document.getElementById('recent-activity');
-        
+    renderRecentActivity(activities) {
         if (!activities || activities.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-3">
-                    <i class="bi bi-info-circle text-muted"></i>
+            return `
+                <div class="text-center py-4">
+                    <i class="bi bi-info-circle text-muted fs-1"></i>
                     <p class="text-muted mb-0 mt-2">Geen recente activiteit</p>
                 </div>
             `;
-            return;
         }
 
-        container.innerHTML = activities.map(activity => `
-            <div class="activity-item">
-                <div class="activity-icon bg-${this.getActivityColor(activity.type)}">
-                    <i class="bi ${this.getActivityIcon(activity.type)}"></i>
-                </div>
-                <div class="activity-content">
-                    <div class="activity-title">${activity.title}</div>
-                    <div class="activity-description">${activity.description}</div>
-                </div>
-                <div class="activity-time">
-                    ${this.formatTimeAgo(activity.created_at)}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    updateNewLeads(leads) {
-        const container = document.getElementById('new-leads');
-        const countBadge = document.getElementById('new-leads-count');
-        const navBadge = document.getElementById('leads-badge');
-        
-        const newLeadsCount = leads.leads?.filter(lead => lead.status === 'new').length || 0;
-        
-        countBadge.textContent = newLeadsCount;
-        
-        if (newLeadsCount > 0) {
-            navBadge.textContent = newLeadsCount;
-            navBadge.classList.remove('d-none');
-        } else {
-            navBadge.classList.add('d-none');
-        }
-
-        if (!leads.leads || leads.leads.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-2">
-                    <small class="text-muted">Geen nieuwe leads</small>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = leads.leads.slice(0, 3).map(lead => `
-            <div class="list-group-item list-group-item-action border-0 px-0">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1">${lead.first_name || ''} ${lead.last_name || ''}</h6>
-                        <p class="mb-1 small text-muted">${lead.email || lead.phone || ''}</p>
-                        <small class="text-muted">${this.formatTimeAgo(lead.created_at)}</small>
+        return activities.map(activity => `
+            <div class="d-flex align-items-center py-2 border-bottom">
+                <div class="activity-icon me-3">
+                    <div class="rounded-circle bg-${this.getActivityColor(activity.type)} p-2">
+                        <i class="bi ${this.getActivityIcon(activity.type)} text-white"></i>
                     </div>
-                    <span class="badge bg-success rounded-pill">Nieuw</span>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-bold">${activity.title}</div>
+                    <div class="text-muted small">${activity.description}</div>
+                </div>
+                <div class="text-muted small">
+                    ${this.formatDate(activity.created_at)}
                 </div>
             </div>
         `).join('');
     }
+
 
     async loadCustomers() {
         const section = document.getElementById('customers-section');
@@ -1318,10 +1416,34 @@ class AdminApp {
         }
     }
 
-    deleteQuote(id) {
+    async deleteQuote(id) {
         console.log('🗑️ Delete quote:', id);
-        if (confirm(`Weet je zeker dat je offerte #${id} wilt verwijderen?`)) {
-            this.showToast(`Offerte #${id} verwijderen komt binnenkort!`, 'warning');
+        
+        if (!confirm(`Weet je zeker dat je offerte #${id} wilt verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${this.baseURL}/api/quotes/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            this.showToast(`✅ Offerte #${id} succesvol verwijderd!`, 'success');
+            
+            // Refresh quotes list
+            await this.loadQuotes();
+            
+        } catch (error) {
+            console.error('Error deleting quote:', error);
+            this.showToast(`❌ Fout bij verwijderen van offerte #${id}: ${error.message}`, 'danger');
         }
     }
     
@@ -3314,14 +3436,119 @@ class AdminApp {
 
     async viewAppointment(id) {
         console.log('👁️ Viewing appointment:', id);
-        // TODO: Implement appointment view modal
-        alert('Afspraak bekijken functionaliteit wordt nog geïmplementeerd');
+        return this.viewAppointmentDetails(id);
     }
 
     async editAppointment(id) {
         console.log('✏️ Editing appointment:', id);
-        // TODO: Implement appointment edit modal
-        alert('Afspraak bewerken functionaliteit wordt nog geïmplementeerd');
+        try {
+            const appointment = await this.apiCall('GET', `/api/appointments/${id}`);
+            const customers = await this.apiCall('GET', '/api/customers');
+            
+            // Create edit modal
+            const existingModal = document.getElementById('editAppointmentModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalHTML = `
+                <div class="modal fade" id="editAppointmentModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-pencil-square text-primary"></i> Afspraak Bewerken
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="editAppointmentForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentCustomer" class="form-label">Klant *</label>
+                                                <select class="form-select" id="editAppointmentCustomer" required>
+                                                    ${customers.customers.map(customer => 
+                                                        `<option value="${customer.id}" ${customer.id === appointment.customer_id ? 'selected' : ''}>${customer.first_name} ${customer.last_name} - ${customer.email}</option>`
+                                                    ).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentDate" class="form-label">Datum *</label>
+                                                <input type="date" class="form-control" id="editAppointmentDate" required 
+                                                       value="${appointment.appointment_date}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentStartTime" class="form-label">Start Tijd *</label>
+                                                <input type="time" class="form-control" id="editAppointmentStartTime" required 
+                                                       value="${appointment.start_time}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentEndTime" class="form-label">Eind Tijd *</label>
+                                                <input type="time" class="form-control" id="editAppointmentEndTime" required 
+                                                       value="${appointment.end_time}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentStatus" class="form-label">Status</label>
+                                                <select class="form-select" id="editAppointmentStatus">
+                                                    <option value="scheduled" ${appointment.status === 'scheduled' ? 'selected' : ''}>Gepland</option>
+                                                    <option value="in_progress" ${appointment.status === 'in_progress' ? 'selected' : ''}>In Behandeling</option>
+                                                    <option value="completed" ${appointment.status === 'completed' ? 'selected' : ''}>Voltooid</option>
+                                                    <option value="cancelled" ${appointment.status === 'cancelled' ? 'selected' : ''}>Geannuleerd</option>
+                                                    <option value="no_show" ${appointment.status === 'no_show' ? 'selected' : ''}>Niet Verschenen</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="editAppointmentLocation" class="form-label">Locatie</label>
+                                                <input type="text" class="form-control" id="editAppointmentLocation" 
+                                                       value="${appointment.location || ''}"
+                                                       placeholder="Bijv. Thuis bij klant, Bedrijfspand, etc.">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="editAppointmentNotes" class="form-label">Notities</label>
+                                        <textarea class="form-control" id="editAppointmentNotes" rows="3" 
+                                                  placeholder="Aanvullende informatie over de afspraak...">${appointment.notes || ''}</textarea>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x"></i> Annuleren
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.saveEditedAppointment('${id}')">
+                                    <i class="bi bi-check-lg"></i> Opslaan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const modal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error loading appointment for editing:', error);
+            this.showToast('Fout bij laden afspraak voor bewerken: ' + error.message, 'error');
+        }
     }
 
     async deleteAppointment(id) {
@@ -5247,12 +5474,268 @@ class AdminApp {
         }
     }
     
-    viewExpense(id) {
-        this.showToast(`Uitgave #${id} bekijken komt binnenkort!`, 'info');
+    async viewExpense(id) {
+        try {
+            const expense = await this.apiCall('GET', `/api/expenses/${id}`);
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'viewExpenseModal';
+            modal.tabIndex = -1;
+            
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-receipt text-danger"></i> 
+                                Uitgave Details - ${expense.invoice_number || 'N/A'}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Algemene Informatie</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>Leverancier:</strong></td><td>${expense.supplier_name || 'Geen leverancier'}</td></tr>
+                                        <tr><td><strong>Factuurnummer:</strong></td><td>${expense.invoice_number || 'N/A'}</td></tr>
+                                        <tr><td><strong>Beschrijving:</strong></td><td>${expense.description}</td></tr>
+                                        <tr><td><strong>Categorie:</strong></td><td><span class="badge bg-secondary">${this.getCategoryText(expense.category)}</span></td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Financiële Details</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>Bedrag:</strong></td><td class="text-currency">${this.formatPrice(parseFloat(expense.amount))}</td></tr>
+                                        <tr><td><strong>BTW %:</strong></td><td>${expense.tax_percentage || 0}%</td></tr>
+                                        <tr><td><strong>Datum:</strong></td><td>${this.formatDate(expense.expense_date)}</td></tr>
+                                        <tr><td><strong>Status:</strong></td><td>
+                                            <span class="badge bg-${expense.status === 'approved' ? 'success' : expense.status === 'pending' ? 'warning' : 'danger'}">
+                                                ${this.getExpenseStatusText(expense.status)}
+                                            </span>
+                                        </td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                            ${expense.notes ? `
+                                <div class="mt-3">
+                                    <h6>Notities</h6>
+                                    <div class="border rounded p-2 bg-light">
+                                        ${expense.notes}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-success" onclick="window.adminApp.editExpense('${expense.id}')">
+                                <i class="bi bi-pencil"></i> Bewerken
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            
+            modal.addEventListener('hidden.bs.modal', function () {
+                modal.remove();
+            });
+            
+            bsModal.show();
+            
+        } catch (error) {
+            console.error('Error viewing expense:', error);
+            this.showToast(`❌ Fout bij bekijken uitgave: ${error.message}`, 'danger');
+        }
     }
     
-    editExpense(id) {
-        this.showToast(`Uitgave #${id} bewerken komt binnenkort!`, 'info');
+    async editExpense(id) {
+        try {
+            const expense = await this.apiCall('GET', `/api/expenses/${id}`);
+            
+            // Create edit modal
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'editExpenseModal';
+            modal.tabIndex = -1;
+            
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-pencil text-success"></i> 
+                                Uitgave Bewerken - ${expense.invoice_number || 'N/A'}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="editExpenseForm">
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Leverancier</label>
+                                            <select class="form-select" name="supplier_id">
+                                                <option value="">Geen leverancier</option>
+                                                <!-- Supplier options will be loaded -->
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Factuurnummer</label>
+                                            <input type="text" class="form-control" name="invoice_number" value="${expense.invoice_number || ''}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Beschrijving *</label>
+                                            <textarea class="form-control" name="description" rows="3" required>${expense.description}</textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Categorie *</label>
+                                            <select class="form-select" name="category" required>
+                                                <option value="materials" ${expense.category === 'materials' ? 'selected' : ''}>Materialen</option>
+                                                <option value="equipment" ${expense.category === 'equipment' ? 'selected' : ''}>Apparatuur</option>
+                                                <option value="fuel" ${expense.category === 'fuel' ? 'selected' : ''}>Brandstof</option>
+                                                <option value="office" ${expense.category === 'office' ? 'selected' : ''}>Kantoor</option>
+                                                <option value="other" ${expense.category === 'other' ? 'selected' : ''}>Overig</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Bedrag (€) *</label>
+                                            <input type="number" step="0.01" class="form-control" name="amount" value="${expense.amount}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">BTW %</label>
+                                            <input type="number" step="0.01" class="form-control" name="tax_percentage" value="${expense.tax_percentage || 0}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Uitgavedatum *</label>
+                                            <input type="date" class="form-control" name="expense_date" value="${expense.expense_date ? expense.expense_date.split('T')[0] : ''}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Status</label>
+                                            <select class="form-select" name="status">
+                                                <option value="pending" ${expense.status === 'pending' ? 'selected' : ''}>Openstaand</option>
+                                                <option value="approved" ${expense.status === 'approved' ? 'selected' : ''}>Goedgekeurd</option>
+                                                <option value="rejected" ${expense.status === 'rejected' ? 'selected' : ''}>Afgewezen</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Notities</label>
+                                    <textarea class="form-control" name="notes" rows="2">${expense.notes || ''}</textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-danger" onclick="window.adminApp.confirmDeleteExpense('${expense.id}')">
+                                    <i class="bi bi-trash"></i> Verwijderen
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Opslaan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            
+            // Load suppliers for select
+            try {
+                const suppliers = await this.apiCall('GET', '/api/suppliers');
+                const supplierSelect = modal.querySelector('select[name="supplier_id"]');
+                suppliers.forEach(supplier => {
+                    const option = document.createElement('option');
+                    option.value = supplier.id;
+                    option.textContent = supplier.name;
+                    if (supplier.id === expense.supplier_id) {
+                        option.selected = true;
+                    }
+                    supplierSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.warn('Could not load suppliers:', error);
+            }
+            
+            // Handle form submission
+            modal.querySelector('#editExpenseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.saveEditedExpense(expense.id);
+            });
+            
+            modal.addEventListener('hidden.bs.modal', function () {
+                modal.remove();
+            });
+            
+            bsModal.show();
+            
+        } catch (error) {
+            console.error('Error editing expense:', error);
+            this.showToast(`❌ Fout bij bewerken uitgave: ${error.message}`, 'danger');
+        }
+    }
+    
+    async saveEditedExpense(id) {
+        try {
+            const form = document.getElementById('editExpenseForm');
+            const formData = new FormData(form);
+            
+            const expenseData = {
+                supplier_id: formData.get('supplier_id') || null,
+                invoice_number: formData.get('invoice_number'),
+                description: formData.get('description'),
+                category: formData.get('category'),
+                amount: parseFloat(formData.get('amount')),
+                tax_percentage: parseFloat(formData.get('tax_percentage')) || 0,
+                expense_date: formData.get('expense_date'),
+                status: formData.get('status'),
+                notes: formData.get('notes') || null
+            };
+            
+            await this.apiCall('PUT', `/api/expenses/${id}`, expenseData);
+            
+            this.showToast('✅ Uitgave succesvol bijgewerkt!', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editExpenseModal'));
+            modal.hide();
+            
+            await this.loadExpenses();
+            
+        } catch (error) {
+            console.error('Error saving expense:', error);
+            this.showToast(`❌ Fout bij opslaan: ${error.message}`, 'danger');
+        }
+    }
+    
+    async confirmDeleteExpense(id) {
+        if (!confirm('Weet je zeker dat je deze uitgave wilt verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.')) {
+            return;
+        }
+        
+        try {
+            await this.apiCall('DELETE', `/api/expenses/${id}`);
+            
+            this.showToast('✅ Uitgave succesvol verwijderd!', 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editExpenseModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            await this.loadExpenses();
+            
+        } catch (error) {
+            console.error('Error deleting expense:', error);
+            this.showToast(`❌ Fout bij verwijderen: ${error.message}`, 'danger');
+        }
     }
 
     async exportExpenses() {
@@ -5390,15 +5873,405 @@ class AdminApp {
     }
     
     showAddSupplierModal() {
-        this.showToast('Nieuwe leverancier functionaliteit komt binnenkort!', 'info');
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'addSupplierModal';
+        modal.tabIndex = -1;
+        
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-truck text-primary"></i> Nieuwe Leverancier
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form id="addSupplierForm">
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Bedrijfsnaam *</label>
+                                        <input type="text" class="form-control" name="name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Contactpersoon</label>
+                                        <input type="text" class="form-control" name="contact_person">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" name="email">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Telefoon</label>
+                                        <input type="tel" class="form-control" name="phone">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Adres</label>
+                                        <input type="text" class="form-control" name="address">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Stad</label>
+                                        <input type="text" class="form-control" name="city">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Postcode</label>
+                                        <input type="text" class="form-control" name="postal_code">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Land</label>
+                                        <input type="text" class="form-control" name="country" value="Nederland">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Website</label>
+                                        <input type="url" class="form-control" name="website">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Status</label>
+                                        <select class="form-select" name="active">
+                                            <option value="true">Actief</option>
+                                            <option value="false">Inactief</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Notities</label>
+                                <textarea class="form-control" name="notes" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Leverancier Toevoegen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        
+        // Handle form submission
+        modal.querySelector('#addSupplierForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveNewSupplier();
+        });
+        
+        modal.addEventListener('hidden.bs.modal', function () {
+            modal.remove();
+        });
+        
+        bsModal.show();
     }
     
-    viewSupplier(id) {
-        this.showToast(`Leverancier #${id} bekijken komt binnenkort!`, 'info');
+    async saveNewSupplier() {
+        try {
+            const form = document.getElementById('addSupplierForm');
+            const formData = new FormData(form);
+            
+            const supplierData = {
+                name: formData.get('name'),
+                contact_person: formData.get('contact_person') || null,
+                email: formData.get('email') || null,
+                phone: formData.get('phone') || null,
+                address: formData.get('address') || null,
+                city: formData.get('city') || null,
+                postal_code: formData.get('postal_code') || null,
+                country: formData.get('country') || 'Nederland',
+                website: formData.get('website') || null,
+                active: formData.get('active') === 'true',
+                notes: formData.get('notes') || null
+            };
+            
+            await this.apiCall('POST', '/api/suppliers', supplierData);
+            
+            this.showToast('✅ Leverancier succesvol toegevoegd!', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addSupplierModal'));
+            modal.hide();
+            
+            await this.loadSuppliers();
+            
+        } catch (error) {
+            console.error('Error adding supplier:', error);
+            this.showToast(`❌ Fout bij toevoegen leverancier: ${error.message}`, 'danger');
+        }
     }
     
-    editSupplier(id) {
-        this.showToast(`Leverancier #${id} bewerken komt binnenkort!`, 'info');
+    async viewSupplier(id) {
+        try {
+            const supplier = await this.apiCall('GET', `/api/suppliers/${id}`);
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'viewSupplierModal';
+            modal.tabIndex = -1;
+            
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-truck text-primary"></i> 
+                                Leverancier Details - ${supplier.name}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Contactgegevens</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>Bedrijfsnaam:</strong></td><td>${supplier.name}</td></tr>
+                                        <tr><td><strong>Contactpersoon:</strong></td><td>${supplier.contact_person || 'N/A'}</td></tr>
+                                        <tr><td><strong>Email:</strong></td><td>${supplier.email || 'N/A'}</td></tr>
+                                        <tr><td><strong>Telefoon:</strong></td><td>${supplier.phone || 'N/A'}</td></tr>
+                                        <tr><td><strong>Website:</strong></td><td>${supplier.website ? `<a href="${supplier.website}" target="_blank">${supplier.website}</a>` : 'N/A'}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Adresgegevens</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>Adres:</strong></td><td>${supplier.address || 'N/A'}</td></tr>
+                                        <tr><td><strong>Stad:</strong></td><td>${supplier.city || 'N/A'}</td></tr>
+                                        <tr><td><strong>Postcode:</strong></td><td>${supplier.postal_code || 'N/A'}</td></tr>
+                                        <tr><td><strong>Land:</strong></td><td>${supplier.country || 'N/A'}</td></tr>
+                                        <tr><td><strong>Status:</strong></td><td>
+                                            <span class="badge bg-${supplier.active ? 'success' : 'secondary'}">
+                                                ${supplier.active ? 'Actief' : 'Inactief'}
+                                            </span>
+                                        </td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <h6>Statistieken</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>Totaal uitgegeven:</strong></td><td class="text-currency">${this.formatPrice(parseFloat(supplier.total_spent || 0))}</td></tr>
+                                        <tr><td><strong>Aantal facturen:</strong></td><td>${supplier.expense_count || 0}</td></tr>
+                                        <tr><td><strong>Toegevoegd op:</strong></td><td>${this.formatDate(supplier.created_at)}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    ${supplier.notes ? `
+                                        <h6>Notities</h6>
+                                        <div class="border rounded p-2 bg-light">
+                                            ${supplier.notes}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-success" onclick="window.adminApp.editSupplier('${supplier.id}')">
+                                <i class="bi bi-pencil"></i> Bewerken
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            
+            modal.addEventListener('hidden.bs.modal', function () {
+                modal.remove();
+            });
+            
+            bsModal.show();
+            
+        } catch (error) {
+            console.error('Error viewing supplier:', error);
+            this.showToast(`❌ Fout bij bekijken leverancier: ${error.message}`, 'danger');
+        }
+    }
+    
+    async editSupplier(id) {
+        try {
+            const supplier = await this.apiCall('GET', `/api/suppliers/${id}`);
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'editSupplierModal';
+            modal.tabIndex = -1;
+            
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-pencil text-success"></i> 
+                                Leverancier Bewerken - ${supplier.name}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="editSupplierForm">
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Bedrijfsnaam *</label>
+                                            <input type="text" class="form-control" name="name" value="${supplier.name}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Contactpersoon</label>
+                                            <input type="text" class="form-control" name="contact_person" value="${supplier.contact_person || ''}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" class="form-control" name="email" value="${supplier.email || ''}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Telefoon</label>
+                                            <input type="tel" class="form-control" name="phone" value="${supplier.phone || ''}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Adres</label>
+                                            <input type="text" class="form-control" name="address" value="${supplier.address || ''}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Stad</label>
+                                            <input type="text" class="form-control" name="city" value="${supplier.city || ''}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Postcode</label>
+                                            <input type="text" class="form-control" name="postal_code" value="${supplier.postal_code || ''}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Land</label>
+                                            <input type="text" class="form-control" name="country" value="${supplier.country || 'Nederland'}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Website</label>
+                                            <input type="url" class="form-control" name="website" value="${supplier.website || ''}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Status</label>
+                                            <select class="form-select" name="active">
+                                                <option value="true" ${supplier.active ? 'selected' : ''}>Actief</option>
+                                                <option value="false" ${!supplier.active ? 'selected' : ''}>Inactief</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Notities</label>
+                                    <textarea class="form-control" name="notes" rows="3">${supplier.notes || ''}</textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-danger" onclick="window.adminApp.confirmDeleteSupplier('${supplier.id}')">
+                                    <i class="bi bi-trash"></i> Verwijderen
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Opslaan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            
+            // Handle form submission
+            modal.querySelector('#editSupplierForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.saveEditedSupplier(supplier.id);
+            });
+            
+            modal.addEventListener('hidden.bs.modal', function () {
+                modal.remove();
+            });
+            
+            bsModal.show();
+            
+        } catch (error) {
+            console.error('Error editing supplier:', error);
+            this.showToast(`❌ Fout bij bewerken leverancier: ${error.message}`, 'danger');
+        }
+    }
+    
+    async saveEditedSupplier(id) {
+        try {
+            const form = document.getElementById('editSupplierForm');
+            const formData = new FormData(form);
+            
+            const supplierData = {
+                name: formData.get('name'),
+                contact_person: formData.get('contact_person') || null,
+                email: formData.get('email') || null,
+                phone: formData.get('phone') || null,
+                address: formData.get('address') || null,
+                city: formData.get('city') || null,
+                postal_code: formData.get('postal_code') || null,
+                country: formData.get('country') || 'Nederland',
+                website: formData.get('website') || null,
+                active: formData.get('active') === 'true',
+                notes: formData.get('notes') || null
+            };
+            
+            await this.apiCall('PUT', `/api/suppliers/${id}`, supplierData);
+            
+            this.showToast('✅ Leverancier succesvol bijgewerkt!', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editSupplierModal'));
+            modal.hide();
+            
+            await this.loadSuppliers();
+            
+        } catch (error) {
+            console.error('Error saving supplier:', error);
+            this.showToast(`❌ Fout bij opslaan: ${error.message}`, 'danger');
+        }
+    }
+    
+    async confirmDeleteSupplier(id) {
+        if (!confirm('Weet je zeker dat je deze leverancier wilt verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.')) {
+            return;
+        }
+        
+        try {
+            await this.apiCall('DELETE', `/api/suppliers/${id}`);
+            
+            this.showToast('✅ Leverancier succesvol verwijderd!', 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editSupplierModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            await this.loadSuppliers();
+            
+        } catch (error) {
+            console.error('Error deleting supplier:', error);
+            this.showToast(`❌ Fout bij verwijderen: ${error.message}`, 'danger');
+        }
     }
 
     // Financial Reports
@@ -9771,9 +10644,146 @@ Deze actie is omkeerbaar.
         this.navigateToSection('invoices');
     }
 
-    editCustomer(id) {
-        // TODO: Implement edit customer
-        this.showToast(`Klant ${id} bewerken - functionaliteit komt binnenkort`, 'info');
+    async editCustomer(id) {
+        try {
+            console.log('✏️ Editing customer:', id);
+            const customer = await this.apiCall('GET', `/api/customers/${id}`);
+            
+            // Close any existing modals
+            const existingModal = document.getElementById('editCustomerModal');
+            if (existingModal) existingModal.remove();
+            
+            // Create edit modal
+            const modalHTML = `
+                <div class="modal fade" id="editCustomerModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-person-fill text-primary"></i> Klant Bewerken: ${customer.first_name} ${customer.last_name}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="editCustomerForm">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="editFirstName" class="form-label">Voornaam *</label>
+                                            <input type="text" class="form-control" id="editFirstName" value="${customer.first_name}" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="editLastName" class="form-label">Achternaam *</label>
+                                            <input type="text" class="form-control" id="editLastName" value="${customer.last_name}" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="editEmail" class="form-label">Email</label>
+                                            <input type="email" class="form-control" id="editEmail" value="${customer.email || ''}">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="editPhone" class="form-label">Telefoon</label>
+                                            <input type="tel" class="form-control" id="editPhone" value="${customer.phone || ''}">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="editAddress" class="form-label">Adres</label>
+                                        <input type="text" class="form-control" id="editAddress" value="${customer.address || ''}" placeholder="Straatnaam en huisnummer">
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label for="editPostalCode" class="form-label">Postcode</label>
+                                            <input type="text" class="form-control" id="editPostalCode" value="${customer.postal_code || ''}" placeholder="1234AB">
+                                        </div>
+                                        <div class="col-md-8 mb-3">
+                                            <label for="editCity" class="form-label">Plaats</label>
+                                            <input type="text" class="form-control" id="editCity" value="${customer.city || ''}">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="editCustomerType" class="form-label">Klanttype</label>
+                                            <select class="form-select" id="editCustomerType">
+                                                <option value="individual" ${customer.customer_type === 'individual' ? 'selected' : ''}>Particulier</option>
+                                                <option value="business" ${customer.customer_type === 'business' ? 'selected' : ''}>Zakelijk</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="editStatus" class="form-label">Status</label>
+                                            <select class="form-select" id="editStatus">
+                                                <option value="active" ${customer.status === 'active' ? 'selected' : ''}>Actief</option>
+                                                <option value="inactive" ${customer.status === 'inactive' ? 'selected' : ''}>Inactief</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="editNotes" class="form-label">Notities</label>
+                                        <textarea class="form-control" id="editNotes" rows="3" placeholder="Aanvullende informatie over de klant...">${customer.notes || ''}</textarea>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x"></i> Annuleren
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.saveEditedCustomer('${id}')">
+                                    <i class="bi bi-check-lg"></i> Wijzigingen Opslaan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const modal = new bootstrap.Modal(document.getElementById('editCustomerModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error loading customer for editing:', error);
+            this.showToast('Fout bij laden klant gegevens: ' + error.message, 'error');
+        }
+    }
+
+    async saveEditedCustomer(id) {
+        try {
+            const formData = {
+                first_name: document.getElementById('editFirstName').value.trim(),
+                last_name: document.getElementById('editLastName').value.trim(),
+                email: document.getElementById('editEmail').value.trim(),
+                phone: document.getElementById('editPhone').value.trim(),
+                address: document.getElementById('editAddress').value.trim(),
+                postal_code: document.getElementById('editPostalCode').value.trim(),
+                city: document.getElementById('editCity').value.trim(),
+                customer_type: document.getElementById('editCustomerType').value,
+                status: document.getElementById('editStatus').value,
+                notes: document.getElementById('editNotes').value.trim()
+            };
+
+            // Basic validation
+            if (!formData.first_name || !formData.last_name) {
+                this.showToast('Voornaam en achternaam zijn verplicht', 'error');
+                return;
+            }
+
+            await this.apiCall('PUT', `/api/customers/${id}`, formData);
+            this.showToast('Klant gegevens succesvol bijgewerkt! ✅', 'success');
+            
+            // Close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editCustomerModal'));
+            if (modal) modal.hide();
+            
+            this.loadCustomers();
+            
+        } catch (error) {
+            console.error('Error updating customer:', error);
+            this.showToast('Fout bij bijwerken klant: ' + error.message, 'error');
+        }
     }
 
     async deleteCustomer(id) {
@@ -10493,13 +11503,6 @@ Deze actie is omkeerbaar.
         this.showToast('Nieuwe uitgave functionaliteit komt binnenkort!', 'info');
     }
 
-    viewExpense(id) {
-        this.showToast(`Uitgave ${id} bekijken komt binnenkort!`, 'info');
-    }
-
-    editExpense(id) {
-        this.showToast(`Uitgave ${id} bewerken komt binnenkort!`, 'info');
-    }
 }
 
 // Initialize app when DOM is loaded
