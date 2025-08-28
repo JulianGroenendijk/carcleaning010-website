@@ -108,10 +108,20 @@ async function runDeployment() {
                                     console.log('✅ Database migration completed:', stdout);
                                 }
                                 
-                                // Step 6: Restart PM2
-                                exec('pm2 restart carcleaning010-admin || echo "PM2 restart done"', (error) => {
-                                    console.log('🚀 Application restarted');
-                                    resolve(true);
+                                // Step 5.5: Seed services data
+                                console.log('🌱 Seeding services data...');
+                                exec('cd /var/www/vhosts/carcleaning010.nl/carcleaning010-website/admin-system && node seed_services_production.js', (error, stdout) => {
+                                    if (error) {
+                                        console.warn('⚠️ Services seeding warning:', error);
+                                    } else {
+                                        console.log('✅ Services seeding completed:', stdout);
+                                    }
+                                    
+                                    // Step 6: Restart PM2
+                                    exec('pm2 restart carcleaning010-admin || echo "PM2 restart done"', (error) => {
+                                        console.log('🚀 Application restarted');
+                                        resolve(true);
+                                    });
                                 });
                             });
                         });
@@ -199,26 +209,37 @@ router.post('/webhook', async (req, res) => {
                                 console.log('✅ Database migration completed:', stdout);
                             }
                             
-                            // Step 6: Restart application
-                            exec('pm2 restart carcleaning010-admin || echo "PM2 restart failed"', (error, stdout, stderr) => {
+                            // Step 5.5: Seed services data
+                            console.log('🌱 Seeding services data...');
+                            exec('node seed_services_production.js', { cwd: __dirname + '/..' }, (error, stdout, stderr) => {
                                 if (error) {
-                                    console.warn('⚠️ PM2 restart warning:', error);
+                                    console.warn('⚠️ Services seeding warning:', error);
+                                } else {
+                                    console.log('✅ Services seeding completed:', stdout);
                                 }
                                 
-                                console.log('🚀 Application restarted');
-                                
-                                res.json({ 
-                                    success: true, 
-                                    message: 'Full deployment completed (website + admin + database)',
-                                    timestamp: new Date().toISOString(),
-                                    steps: [
-                                        '✅ Git pull',
-                                        '✅ Website files deployed to httpdocs', 
-                                        '✅ Admin dependencies installed',
-                                        '✅ Security vulnerabilities fixed',
-                                        '✅ Database migration completed',
-                                        '✅ Admin application restarted'
-                                    ]
+                                // Step 6: Restart application
+                                exec('pm2 restart carcleaning010-admin || echo "PM2 restart failed"', (error, stdout, stderr) => {
+                                    if (error) {
+                                        console.warn('⚠️ PM2 restart warning:', error);
+                                    }
+                                    
+                                    console.log('🚀 Application restarted');
+                                    
+                                    res.json({ 
+                                        success: true, 
+                                        message: 'Full deployment completed (website + admin + database + services)',
+                                        timestamp: new Date().toISOString(),
+                                        steps: [
+                                            '✅ Git pull',
+                                            '✅ Website files deployed to httpdocs', 
+                                            '✅ Admin dependencies installed',
+                                            '✅ Security vulnerabilities fixed',
+                                            '✅ Database migration completed',
+                                            '✅ Services data seeded',
+                                            '✅ Admin application restarted'
+                                        ]
+                                    });
                                 });
                             });
                         });
