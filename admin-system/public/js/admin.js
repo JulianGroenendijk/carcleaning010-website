@@ -5512,8 +5512,8 @@ class AdminApp {
             const settings = await this.loadSystemSettings();
             console.log('✅ Settings loaded:', settings);
             
-            const contentEl = document.getElementById('main-content');
-            contentEl.innerHTML = `
+            const section = document.getElementById('settings-section');
+            section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="bi bi-gear text-secondary"></i> Systeem Instellingen</h1>
                 </div>
@@ -5719,8 +5719,8 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error loading settings:', error);
-            const contentEl = document.getElementById('main-content');
-            contentEl.innerHTML = `
+            const section = document.getElementById('settings-section');
+            section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1><i class="bi bi-gear text-secondary"></i> Systeem Instellingen</h1>
                 </div>
@@ -6411,8 +6411,8 @@ class AdminApp {
             const services = await this.apiCall('GET', '/api/services');
             console.log('📋 Loaded services:', services.services?.length || 0);
             
-            const contentEl = document.getElementById('main-content');
-            contentEl.innerHTML = `
+            const section = document.getElementById('services-section');
+            section.innerHTML = `
                 <div class="container-fluid">
                     <div class="row mb-4">
                         <div class="col-md-8">
