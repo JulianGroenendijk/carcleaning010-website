@@ -129,6 +129,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/customers', verifyToken, require('./routes/customers'));
 app.use('/api/vehicles', verifyToken, require('./routes/vehicles'));
 app.use('/api/services', verifyToken, require('./routes/services'));
+app.use('/api/companies', verifyToken, require('./routes/companies'));
 app.use('/api/quotes', verifyToken, require('./routes/quotes'));
 app.use('/api/appointments', verifyToken, require('./routes/appointments'));
 // Enhanced logging for invoices endpoint

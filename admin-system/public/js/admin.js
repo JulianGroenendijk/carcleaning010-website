@@ -319,6 +319,9 @@ class AdminApp {
                 case 'services':
                     await this.loadServices();
                     break;
+                case 'companies':
+                    await this.loadCompanies();
+                    break;
                 case 'settings':
                     console.log('🔧 About to load settings...');
                     await this.loadSettings();
@@ -6527,53 +6530,198 @@ class AdminApp {
         }
     }
 
-    renderServicesTable(services) {
-        if (!services || services.length === 0) {
-            return '<tr><td colspan="6" class="text-center py-4 text-muted">Geen services gevonden</td></tr>';
+    // Load Companies section
+    async loadCompanies() {
+        console.log('🏢 Loading companies...');
+        try {
+            const companies = await this.apiCall('GET', '/api/companies?page=1&limit=50');
+            console.log('📋 Loaded companies:', companies.companies?.length || 0);
+            
+            const section = document.getElementById('companies-section');
+            section.innerHTML = `
+                <div class="container-fluid">
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <h2><i class="bi bi-building text-primary"></i> Bedrijvenbeheer</h2>
+                            <p class="text-muted">Beheer zakelijke klanten en hun contactgegevens</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-primary" onclick="adminApp.showAddCompanyModal()">
+                                <i class="bi bi-plus-circle"></i> Bedrijf Toevoegen
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="searchCompanies" placeholder="Zoek bedrijven...">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row g-2">
+                                <div class="col-auto">
+                                    <select class="form-select" id="sortCompanies">
+                                        <option value="company_name">Naam</option>
+                                        <option value="city">Stad</option>
+                                        <option value="created_at">Datum toegevoegd</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-outline-secondary" id="refreshCompanies" onclick="adminApp.loadCompanies()">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        Bedrijven Overzicht 
+                                        <span class="badge bg-primary">${companies.companies?.length || 0}</span>
+                                    </h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Bedrijfsnaam</th>
+                                                    <th>BTW-nummer</th>
+                                                    <th>Email</th>
+                                                    <th>Telefoon</th>
+                                                    <th>Stad</th>
+                                                    <th>Contacten</th>
+                                                    <th>Voertuigen</th>
+                                                    <th class="text-center">Acties</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="companies-table-body">
+                                                ${this.renderCompaniesTable(companies.companies || [])}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                ${companies.pagination ? `
+                                    <div class="card-footer">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted">
+                                                Totaal: ${companies.pagination.total_count} bedrijven
+                                            </span>
+                                            <div class="btn-group" role="group">
+                                                ${companies.pagination.has_prev ? 
+                                                    `<button class="btn btn-outline-primary btn-sm" onclick="adminApp.loadCompaniesPage(${companies.pagination.current_page - 1})">
+                                                        <i class="bi bi-chevron-left"></i> Vorige
+                                                    </button>` : ''
+                                                }
+                                                <span class="btn btn-outline-secondary btn-sm disabled">
+                                                    Pagina ${companies.pagination.current_page} van ${companies.pagination.total_pages}
+                                                </span>
+                                                ${companies.pagination.has_next ? 
+                                                    `<button class="btn btn-outline-primary btn-sm" onclick="adminApp.loadCompaniesPage(${companies.pagination.current_page + 1})">
+                                                        Volgende <i class="bi bi-chevron-right"></i>
+                                                    </button>` : ''
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Error loading companies:', error);
+            this.showToast('Fout bij laden bedrijven', 'error');
+        }
+    }
+
+    renderCompaniesTable(companies) {
+        if (!companies || companies.length === 0) {
+            return '<tr><td colspan="8" class="text-center py-4 text-muted">Geen bedrijven gevonden</td></tr>';
         }
 
-        const categoryLabels = {
-            'signature': '🌟 Signature Detailing',
-            'cleaning': '🧽 Reiniging & Onderhoud', 
-            'correction': '✨ Paint Correction',
-            'protection': '🛡️ Bescherming',
-            'restoration': '🔧 Restauratie',
-            'addon': '➕ Extra Services',
-            'other': '📋 Overige'
-        };
-
-        return services.map(service => `
-            <tr data-service-id="${service.id}" data-category="${service.category}" data-name="${service.name.toLowerCase()}">
+        return companies.map(company => `
+            <tr data-company-id="${company.id}">
                 <td>
                     <div>
-                        <strong>${service.name}</strong>
-                        ${service.description ? `<br><small class="text-muted">${service.description}</small>` : ''}
+                        <strong>${this.escapeHtml(company.company_name)}</strong>
+                        ${company.industry ? `<br><small class="text-muted">${this.escapeHtml(company.industry)}</small>` : ''}
                     </div>
                 </td>
-                <td><span class="badge bg-secondary">${categoryLabels[service.category] || service.category}</span></td>
-                <td><span class="text-success fw-bold">${this.formatPrice(parseFloat(service.base_price))}</span></td>
-                <td>${service.duration_minutes ? `${Math.round(service.duration_minutes/60)}u ${service.duration_minutes%60}min` : '-'}</td>
                 <td>
-                    <span class="badge ${service.active ? 'bg-success' : 'bg-secondary'}">
-                        ${service.active ? 'Actief' : 'Inactief'}
-                    </span>
+                    ${company.vat_number ? 
+                        `<code class="text-muted">${this.escapeHtml(company.vat_number)}</code>` : 
+                        '<span class="text-muted">-</span>'
+                    }
+                </td>
+                <td>
+                    ${company.email ? 
+                        `<a href="mailto:${company.email}" class="text-decoration-none">${this.escapeHtml(company.email)}</a>` : 
+                        '<span class="text-muted">-</span>'
+                    }
+                </td>
+                <td>
+                    ${company.phone ? 
+                        `<a href="tel:${company.phone}" class="text-decoration-none">${this.escapeHtml(company.phone)}</a>` : 
+                        '<span class="text-muted">-</span>'
+                    }
+                </td>
+                <td>
+                    ${company.city ? 
+                        this.escapeHtml(company.city) : 
+                        '<span class="text-muted">-</span>'
+                    }
+                </td>
+                <td>
+                    <span class="badge bg-info">${company.contact_count || 0}</span>
+                </td>
+                <td>
+                    <span class="badge bg-success">${company.vehicle_count || 0}</span>
                 </td>
                 <td class="text-center">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-warning" onclick="adminApp.editService('${service.id}')" title="Bewerken">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="adminApp.viewCompany('${company.id}')" title="Bekijken">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="adminApp.editCompany('${company.id}')" title="Bewerken">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-outline-danger" onclick="adminApp.deleteService('${service.id}')" title="Verwijderen">
+                        <button type="button" class="btn btn-outline-danger" onclick="adminApp.deleteCompany('${company.id}')" title="Deactiveren">
                             <i class="bi bi-trash"></i>
-                        </button>
-                        <button class="btn btn-outline-info" onclick="adminApp.toggleServiceStatus('${service.id}', ${!service.active})" 
-                                title="${service.active ? 'Deactiveren' : 'Activeren'}">
-                            <i class="bi bi-${service.active ? 'eye-slash' : 'eye'}"></i>
                         </button>
                     </div>
                 </td>
             </tr>
         `).join('');
+    }
+
+    // Company management functions
+    showAddCompanyModal() {
+        this.showToast('Bedrijf toevoegen functionaliteit komt binnenkort!', 'info');
+    }
+
+    viewCompany(companyId) {
+        this.showToast(`Bedrijf ${companyId} bekijken komt binnenkort!`, 'info');
+    }
+
+    editCompany(companyId) {
+        this.showToast(`Bedrijf ${companyId} bewerken komt binnenkort!`, 'info');
+    }
+
+    deleteCompany(companyId) {
+        this.showToast(`Bedrijf ${companyId} deactiveren komt binnenkort!`, 'warning');
+    }
+
+    loadCompaniesPage(page) {
+        this.showToast(`Pagina ${page} laden komt binnenkort!`, 'info');
     }
 
     filterServices() {
