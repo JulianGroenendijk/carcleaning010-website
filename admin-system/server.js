@@ -95,13 +95,33 @@ app.use('/admin', express.static(path.join(__dirname, 'public'), noCacheOptions)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
 app.use(express.static(path.join(__dirname, 'public'), noCacheOptions));
 
-// Favicon fallback for root requests
+// Favicon routes - serve from root directory and admin/public
 app.get('/favicon.png', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'favicon.png'));
+    // Try root directory first, then admin/public
+    const rootFavicon = path.join(__dirname, '..', 'favicon.png');
+    const adminFavicon = path.join(__dirname, 'public', 'favicon.png');
+    
+    require('fs').access(rootFavicon, require('fs').constants.F_OK, (err) => {
+        if (err) {
+            res.sendFile(adminFavicon);
+        } else {
+            res.sendFile(rootFavicon);
+        }
+    });
 });
 
 app.get('/favicon.ico', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+    // Try root directory first, then admin/public
+    const rootFavicon = path.join(__dirname, '..', 'favicon.ico');
+    const adminFavicon = path.join(__dirname, 'public', 'favicon.ico');
+    
+    require('fs').access(rootFavicon, require('fs').constants.F_OK, (err) => {
+        if (err) {
+            res.sendFile(adminFavicon);
+        } else {
+            res.sendFile(rootFavicon);
+        }
+    });
 });
 
 // Health check endpoint
@@ -150,6 +170,8 @@ app.use('/api/settings', verifyToken, require('./routes/settings'));
 app.use('/api/expenses', verifyToken, require('./routes/expenses'));
 app.use('/api/suppliers', verifyToken, require('./routes/suppliers'));
 app.use('/api/reports', verifyToken, require('./routes/reports'));
+app.use('/api/projects', verifyToken, require('./routes/projects'));
+app.use('/api/service-addons', verifyToken, require('./routes/service-addons'));
 
 // NEW UNIFIED PERSON MANAGEMENT SYSTEM
 app.use('/api/persons', verifyToken, require('./routes/persons'));
@@ -159,24 +181,80 @@ app.use('/api/vehicles-unified', verifyToken, require('./routes/vehicles-unified
 // Website lead endpoint (zonder auth voor website formulier)
 app.use('/api/website-leads', require('./routes/websiteLeads'));
 
+// Website content endpoints (zonder auth voor publieke content)
+app.use('/api/website-content', require('./routes/website-content'));
+
 // Deployment endpoints (minimal auth for remote updates)
 app.use('/api/deploy', require('./routes/deployment'));
 
-// Favicon routes for browser compatibility
-app.get('/favicon.ico', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
-});
-app.get('/favicon.png', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'favicon.png'));
+// (Favicon routes already defined above)
+
+// Serve main website files from root directory (before catch-all)
+app.get('/diensten.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'diensten.html'));
 });
 
-// Catch-all voor frontend routing (SPA) - exclude static files
+app.get('/projecten.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'projecten.html'));
+});
+
+app.get('/index.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
+app.get('/contact.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'contact.html'));
+});
+
+app.get('/over-ons.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'over-ons.html'));
+});
+
+// Serve website static files (CSS, JS, images)
+app.get('/styles.css', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'styles.css'));
+});
+
+app.get('/script-simple.js', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'script-simple.js'));
+});
+
+app.get('/website-api.js', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'website-api.js'));
+});
+
+app.get('/diensten-dynamic.js', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'diensten-dynamic.js'));
+});
+
+app.get('/projecten-dynamic.js', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'projecten-dynamic.js'));
+});
+
+// Serve website images
+app.get('/images/*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', req.path));
+});
+
+// Root route should serve main website
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
+// Catch-all voor admin frontend routing (SPA) - exclude static files
 app.get('*', (req, res) => {
     // Don't serve index.html for static files (js, css, images, etc.)
     if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
         return res.status(404).send('File not found');
     }
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    
+    // If path starts with /admin, serve admin app
+    if (req.path.startsWith('/admin')) {
+        return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+    
+    // Otherwise serve main website index
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 // Error handling middleware

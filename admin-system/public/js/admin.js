@@ -6546,6 +6546,77 @@ class AdminApp {
         }
     }
 
+    // Render services table
+    renderServicesTable(services) {
+        if (!services || services.length === 0) {
+            return `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        <i class="bi bi-list-check"></i><br>
+                        Geen services gevonden
+                    </td>
+                </tr>
+            `;
+        }
+
+        return services.map(service => {
+            const priceDisplay = this.formatServicePrice(service);
+            const durationDisplay = service.duration_minutes ? 
+                `${Math.floor(service.duration_minutes / 60)}u ${service.duration_minutes % 60}m` : 
+                (service.duration_text || '-');
+            
+            return `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            ${service.icon ? `<span class="me-2">${service.icon}</span>` : ''}
+                            <div>
+                                <strong>${service.name}</strong>
+                                ${service.subtitle ? `<br><small class="text-muted">${service.subtitle}</small>` : ''}
+                                ${service.package_type ? `<br><span class="badge bg-info">${service.package_type}</span>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">${service.category || '-'}</span>
+                    </td>
+                    <td>${priceDisplay}</td>
+                    <td>${durationDisplay}</td>
+                    <td>
+                        <span class="badge ${service.active ? 'bg-success' : 'bg-warning'}">
+                            ${service.active ? 'Actief' : 'Inactief'}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="adminApp.showEditServiceModal('${service.id}')" title="Bewerken">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="adminApp.confirmDeleteService('${service.id}', '${service.name.replace(/'/g, "\\'")}')" title="Verwijderen">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Format service price for display
+    formatServicePrice(service) {
+        if (service.price_range_min && service.price_range_max) {
+            if (service.price_range_min === service.price_range_max) {
+                return `€${parseFloat(service.price_range_min).toFixed(2)}`;
+            } else {
+                return `€${parseFloat(service.price_range_min).toFixed(2)} - €${parseFloat(service.price_range_max).toFixed(2)}`;
+            }
+        } else if (service.base_price) {
+            return `€${parseFloat(service.base_price).toFixed(2)}`;
+        } else {
+            return 'Op aanvraag';
+        }
+    }
+
     // Load Companies section
     async loadCompanies() {
         console.log('🏢 Loading companies...');
