@@ -9833,6 +9833,305 @@ Deze actie is omkeerbaar.
         }
     }
 
+    // Service management functions
+    showAddServiceModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'addServiceModal';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-plus-circle text-primary"></i> Nieuwe Service Toevoegen
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addServiceForm">
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="service_name" class="form-label">Service Naam *</label>
+                                    <input type="text" class="form-control" id="service_name" name="name" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="service_icon" class="form-label">Icon</label>
+                                    <input type="text" class="form-control" id="service_icon" name="icon" placeholder="⭐">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="service_subtitle" class="form-label">Ondertitel</label>
+                                <input type="text" class="form-control" id="service_subtitle" name="subtitle">
+                            </div>
+                            <div class="mb-3">
+                                <label for="service_description" class="form-label">Beschrijving</label>
+                                <textarea class="form-control" id="service_description" name="description" rows="3"></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="service_category" class="form-label">Categorie *</label>
+                                    <select class="form-select" id="service_category" name="category" required>
+                                        <option value="">Selecteer categorie</option>
+                                        <option value="signature">Signature</option>
+                                        <option value="cleaning">Reiniging</option>
+                                        <option value="detailing">Detailing</option>
+                                        <option value="protection">Bescherming</option>
+                                        <option value="maintenance">Onderhoud</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="service_package_type" class="form-label">Package Type</label>
+                                    <select class="form-select" id="service_package_type" name="package_type">
+                                        <option value="">Selecteer type</option>
+                                        <option value="signature">Signature Package</option>
+                                        <option value="individual">Individual Service</option>
+                                        <option value="addon">Add-on</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="service_price_min" class="form-label">Prijs Min (€)</label>
+                                    <input type="number" class="form-control" id="service_price_min" name="price_range_min" step="0.01" min="0">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="service_price_max" class="form-label">Prijs Max (€)</label>
+                                    <input type="number" class="form-control" id="service_price_max" name="price_range_max" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="service_duration" class="form-label">Duur (minuten)</label>
+                                    <input type="number" class="form-control" id="service_duration" name="duration_minutes" min="0">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="service_duration_text" class="form-label">Duur Tekst</label>
+                                    <input type="text" class="form-control" id="service_duration_text" name="duration_text" placeholder="bijv. 2-3 uur">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="service_features" class="form-label">Features (één per regel)</label>
+                                <textarea class="form-control" id="service_features" name="features" rows="4" placeholder="Pre-wash en snow foam&#10;Grondige handwas met premium producten&#10;Complete interieur detailing"></textarea>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="service_active" name="active" checked>
+                                <label class="form-check-label" for="service_active">Actief</label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                        <button type="button" class="btn btn-primary" onclick="adminApp.saveService()">Service Opslaan</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+
+        modal.addEventListener('hidden.bs.modal', () => {
+            modal.remove();
+        });
+    }
+
+    showEditServiceModal(serviceId) {
+        // First fetch the service data
+        this.apiCall('GET', `/api/services/${serviceId}`)
+            .then(service => {
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.id = 'editServiceModal';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-pencil text-primary"></i> Service Bewerken
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="editServiceForm">
+                                    <input type="hidden" id="edit_service_id" value="${service.id}">
+                                    <div class="row">
+                                        <div class="col-md-8 mb-3">
+                                            <label for="edit_service_name" class="form-label">Service Naam *</label>
+                                            <input type="text" class="form-control" id="edit_service_name" name="name" value="${service.name || ''}" required>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label for="edit_service_icon" class="form-label">Icon</label>
+                                            <input type="text" class="form-control" id="edit_service_icon" name="icon" value="${service.icon || ''}" placeholder="⭐">
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_service_subtitle" class="form-label">Ondertitel</label>
+                                        <input type="text" class="form-control" id="edit_service_subtitle" name="subtitle" value="${service.subtitle || ''}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_service_description" class="form-label">Beschrijving</label>
+                                        <textarea class="form-control" id="edit_service_description" name="description" rows="3">${service.description || ''}</textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit_service_category" class="form-label">Categorie *</label>
+                                            <select class="form-select" id="edit_service_category" name="category" required>
+                                                <option value="">Selecteer categorie</option>
+                                                <option value="signature" ${service.category === 'signature' ? 'selected' : ''}>Signature</option>
+                                                <option value="cleaning" ${service.category === 'cleaning' ? 'selected' : ''}>Reiniging</option>
+                                                <option value="detailing" ${service.category === 'detailing' ? 'selected' : ''}>Detailing</option>
+                                                <option value="protection" ${service.category === 'protection' ? 'selected' : ''}>Bescherming</option>
+                                                <option value="maintenance" ${service.category === 'maintenance' ? 'selected' : ''}>Onderhoud</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit_service_package_type" class="form-label">Package Type</label>
+                                            <select class="form-select" id="edit_service_package_type" name="package_type">
+                                                <option value="">Selecteer type</option>
+                                                <option value="signature" ${service.package_type === 'signature' ? 'selected' : ''}>Signature Package</option>
+                                                <option value="individual" ${service.package_type === 'individual' ? 'selected' : ''}>Individual Service</option>
+                                                <option value="addon" ${service.package_type === 'addon' ? 'selected' : ''}>Add-on</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit_service_price_min" class="form-label">Prijs Min (€)</label>
+                                            <input type="number" class="form-control" id="edit_service_price_min" name="price_range_min" value="${service.price_range_min || ''}" step="0.01" min="0">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit_service_price_max" class="form-label">Prijs Max (€)</label>
+                                            <input type="number" class="form-control" id="edit_service_price_max" name="price_range_max" value="${service.price_range_max || ''}" step="0.01" min="0">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit_service_duration" class="form-label">Duur (minuten)</label>
+                                            <input type="number" class="form-control" id="edit_service_duration" name="duration_minutes" value="${service.duration_minutes || ''}" min="0">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit_service_duration_text" class="form-label">Duur Tekst</label>
+                                            <input type="text" class="form-control" id="edit_service_duration_text" name="duration_text" value="${service.duration_text || ''}" placeholder="bijv. 2-3 uur">
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_service_features" class="form-label">Features (één per regel)</label>
+                                        <textarea class="form-control" id="edit_service_features" name="features" rows="4" placeholder="Pre-wash en snow foam&#10;Grondige handwas met premium producten&#10;Complete interieur detailing">${Array.isArray(service.features) ? service.features.join('\n') : ''}</textarea>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input type="checkbox" class="form-check-input" id="edit_service_active" name="active" ${service.active ? 'checked' : ''}>
+                                        <label class="form-check-label" for="edit_service_active">Actief</label>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.updateService('${service.id}')">Service Bijwerken</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+                const bootstrapModal = new bootstrap.Modal(modal);
+                bootstrapModal.show();
+
+                modal.addEventListener('hidden.bs.modal', () => {
+                    modal.remove();
+                });
+            })
+            .catch(error => {
+                console.error('Error loading service:', error);
+                this.showToast('Fout bij ophalen service gegevens', 'error');
+            });
+    }
+
+    async saveService() {
+        const form = document.getElementById('addServiceForm');
+        const formData = new FormData(form);
+        
+        // Process features
+        const featuresText = formData.get('features');
+        const features = featuresText ? featuresText.split('\n').filter(f => f.trim()) : [];
+        
+        const serviceData = {
+            name: formData.get('name'),
+            subtitle: formData.get('subtitle'),
+            description: formData.get('description'),
+            category: formData.get('category'),
+            package_type: formData.get('package_type'),
+            price_range_min: formData.get('price_range_min') ? parseFloat(formData.get('price_range_min')) : null,
+            price_range_max: formData.get('price_range_max') ? parseFloat(formData.get('price_range_max')) : null,
+            duration_minutes: formData.get('duration_minutes') ? parseInt(formData.get('duration_minutes')) : null,
+            duration_text: formData.get('duration_text'),
+            features: features,
+            icon: formData.get('icon'),
+            active: formData.has('active')
+        };
+
+        try {
+            await this.apiCall('POST', '/api/services', serviceData);
+            this.showToast('Service succesvol toegevoegd', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addServiceModal')).hide();
+            this.loadServices(); // Refresh the table
+        } catch (error) {
+            console.error('Error saving service:', error);
+            this.showToast('Fout bij opslaan service', 'error');
+        }
+    }
+
+    async updateService(serviceId) {
+        const form = document.getElementById('editServiceForm');
+        const formData = new FormData(form);
+        
+        // Process features
+        const featuresText = formData.get('features');
+        const features = featuresText ? featuresText.split('\n').filter(f => f.trim()) : [];
+        
+        const serviceData = {
+            name: formData.get('name'),
+            subtitle: formData.get('subtitle'),
+            description: formData.get('description'),
+            category: formData.get('category'),
+            package_type: formData.get('package_type'),
+            price_range_min: formData.get('price_range_min') ? parseFloat(formData.get('price_range_min')) : null,
+            price_range_max: formData.get('price_range_max') ? parseFloat(formData.get('price_range_max')) : null,
+            duration_minutes: formData.get('duration_minutes') ? parseInt(formData.get('duration_minutes')) : null,
+            duration_text: formData.get('duration_text'),
+            features: features,
+            icon: formData.get('icon'),
+            active: formData.has('active')
+        };
+
+        try {
+            await this.apiCall('PUT', `/api/services/${serviceId}`, serviceData);
+            this.showToast('Service succesvol bijgewerkt', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editServiceModal')).hide();
+            this.loadServices(); // Refresh the table
+        } catch (error) {
+            console.error('Error updating service:', error);
+            this.showToast('Fout bij bijwerken service', 'error');
+        }
+    }
+
+    confirmDeleteService(serviceId, serviceName) {
+        if (confirm(`Weet je zeker dat je de service "${serviceName}" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.`)) {
+            this.deleteService(serviceId);
+        }
+    }
+
+    async deleteService(serviceId) {
+        try {
+            await this.apiCall('DELETE', `/api/services/${serviceId}`);
+            this.showToast('Service succesvol verwijderd', 'success');
+            this.loadServices(); // Refresh the table
+        } catch (error) {
+            console.error('Error deleting service:', error);
+            this.showToast('Fout bij verwijderen service', 'error');
+        }
+    }
+
     // Placeholder functions for expenses
     showAddExpenseModal() {
         this.showToast('Nieuwe uitgave functionaliteit komt binnenkort!', 'info');
