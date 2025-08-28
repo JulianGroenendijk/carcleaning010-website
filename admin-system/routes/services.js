@@ -75,8 +75,7 @@ router.post('/', async (req, res) => {
             category,
             base_price,
             duration_minutes,
-            active = true,
-            sort_order = 0
+            active = true
         } = req.body;
 
         if (!name || !category) {
@@ -88,10 +87,10 @@ router.post('/', async (req, res) => {
         const result = await query(`
             INSERT INTO services (
                 name, description, category, base_price, 
-                duration_minutes, active, sort_order
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                duration_minutes, active
+            ) VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-        `, [name, description, category, base_price, duration_minutes, active, sort_order]);
+        `, [name, description, category, base_price, duration_minutes, active]);
 
         res.status(201).json(result.rows[0]);
 
@@ -111,8 +110,7 @@ router.put('/:id', async (req, res) => {
             category,
             base_price,
             duration_minutes,
-            active,
-            sort_order
+            active
         } = req.body;
 
         const result = await query(`
@@ -123,11 +121,10 @@ router.put('/:id', async (req, res) => {
                 base_price = COALESCE($4, base_price),
                 duration_minutes = COALESCE($5, duration_minutes),
                 active = COALESCE($6, active),
-                sort_order = COALESCE($7, sort_order),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $8
+            WHERE id = $7
             RETURNING *
-        `, [name, description, category, base_price, duration_minutes, active, sort_order, serviceId]);
+        `, [name, description, category, base_price, duration_minutes, active, serviceId]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Dienst niet gevonden' });
