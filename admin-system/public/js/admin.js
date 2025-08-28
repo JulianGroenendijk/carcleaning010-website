@@ -6519,13 +6519,13 @@ class AdminApp {
                 </td>
                 <td class="text-center">
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-warning" onclick="adminApp.editService(${service.id})" title="Bewerken">
+                        <button class="btn btn-outline-warning" onclick="adminApp.editService('${service.id}')" title="Bewerken">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-outline-danger" onclick="adminApp.deleteService(${service.id})" title="Verwijderen">
+                        <button class="btn btn-outline-danger" onclick="adminApp.deleteService('${service.id}')" title="Verwijderen">
                             <i class="bi bi-trash"></i>
                         </button>
-                        <button class="btn btn-outline-info" onclick="adminApp.toggleServiceStatus(${service.id}, ${!service.active})" 
+                        <button class="btn btn-outline-info" onclick="adminApp.toggleServiceStatus('${service.id}', ${!service.active})" 
                                 title="${service.active ? 'Deactiveren' : 'Activeren'}">
                             <i class="bi bi-${service.active ? 'eye-slash' : 'eye'}"></i>
                         </button>
