@@ -4563,14 +4563,14 @@ class AdminApp {
                                     ${servicesByCategory[category].map(service => `
                                         <div class="form-check mb-2">
                                             <input class="form-check-input service-checkbox" type="checkbox" value="${service.id}" 
-                                                   data-name="${service.name}" data-price="${service.price}" data-duration="${service.duration_hours || 0}">
+                                                   data-name="${service.name}" data-price="${service.base_price}" data-duration="${service.duration_minutes || 0}">
                                             <label class="form-check-label w-100" for="service_${service.id}">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div>
                                                         <strong>${service.name}</strong>
                                                         ${service.description ? `<br><small class="text-muted">${service.description}</small>` : ''}
                                                     </div>
-                                                    <span class="badge bg-primary">${this.formatPrice(service.price, {showVATStatus: false})}</span>
+                                                    <span class="badge bg-primary">${this.formatPrice(service.base_price, {showVATStatus: false})}</span>
                                                 </div>
                                             </label>
                                         </div>
@@ -6409,7 +6409,7 @@ class AdminApp {
     async loadServices() {
         console.log('🔧 Loading services...');
         try {
-            const services = await this.apiCall('GET', '/api/services');
+            const services = await this.apiCall('GET', '/api/services?active_only=false');
             console.log('📋 Loaded services:', services.services?.length || 0);
             
             const section = document.getElementById('services-section');
