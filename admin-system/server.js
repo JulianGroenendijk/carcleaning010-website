@@ -95,33 +95,13 @@ app.use('/admin', express.static(path.join(__dirname, 'public'), noCacheOptions)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), noCacheOptions));
 app.use(express.static(path.join(__dirname, 'public'), noCacheOptions));
 
-// Favicon routes - serve from root directory and admin/public
+// Favicon routes - return 204 No Content for missing favicons
 app.get('/favicon.png', (req, res) => {
-    // Try root directory first, then admin/public
-    const rootFavicon = path.join(__dirname, '..', 'favicon.png');
-    const adminFavicon = path.join(__dirname, 'public', 'favicon.png');
-    
-    require('fs').access(rootFavicon, require('fs').constants.F_OK, (err) => {
-        if (err) {
-            res.sendFile(adminFavicon);
-        } else {
-            res.sendFile(rootFavicon);
-        }
-    });
+    res.status(204).end(); // No favicon available
 });
 
 app.get('/favicon.ico', (req, res) => {
-    // Try root directory first, then admin/public
-    const rootFavicon = path.join(__dirname, '..', 'favicon.ico');
-    const adminFavicon = path.join(__dirname, 'public', 'favicon.ico');
-    
-    require('fs').access(rootFavicon, require('fs').constants.F_OK, (err) => {
-        if (err) {
-            res.sendFile(adminFavicon);
-        } else {
-            res.sendFile(rootFavicon);
-        }
-    });
+    res.status(204).end(); // No favicon available
 });
 
 // Health check endpoint
