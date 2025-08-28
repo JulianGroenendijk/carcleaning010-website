@@ -197,14 +197,14 @@ AdminApp.prototype.renderPersonsTable = function(persons) {
                 <td>${lastActivity}</td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-outline-primary" onclick="app.viewPerson('${person.id}')" title="Bekijken">
+                        <button class="btn btn-outline-primary person-action-btn" data-action="view" data-person-id="${person.id}" title="Bekijken">
                             <i class="bi bi-eye"></i>
                         </button>
-                        <button class="btn btn-outline-success" onclick="app.editPerson('${person.id}')" title="Bewerken">
+                        <button class="btn btn-outline-success person-action-btn" data-action="edit" data-person-id="${person.id}" title="Bewerken">
                             <i class="bi bi-pencil"></i>
                         </button>
                         ${(person.is_individual_lead || person.is_business_lead) ? 
-                            `<button class="btn btn-outline-warning" onclick="app.convertPersonToCustomer('${person.id}')" title="Converteer naar klant">
+                            `<button class="btn btn-outline-warning person-action-btn" data-action="convert" data-person-id="${person.id}" title="Converteer naar klant">
                                 <i class="bi bi-arrow-right-circle"></i>
                             </button>` : ''
                         }
@@ -213,14 +213,14 @@ AdminApp.prototype.renderPersonsTable = function(persons) {
                                 <i class="bi bi-three-dots"></i>
                             </button>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" onclick="app.addVehicleToPerson('${person.id}')">
+                                <li><a class="dropdown-item person-action-btn" href="#" data-action="addVehicle" data-person-id="${person.id}">
                                     <i class="bi bi-car-front"></i> Voertuig Toevoegen
                                 </a></li>
-                                <li><a class="dropdown-item" href="#" onclick="app.addPersonToCompany('${person.id}')">
+                                <li><a class="dropdown-item person-action-btn" href="#" data-action="addToCompany" data-person-id="${person.id}">
                                     <i class="bi bi-building"></i> Aan Bedrijf Koppelen
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#" onclick="app.deletePerson('${person.id}')">
+                                <li><a class="dropdown-item text-danger person-action-btn" href="#" data-action="delete" data-person-id="${person.id}">
                                     <i class="bi bi-trash"></i> Verwijderen
                                 </a></li>
                             </ul>
@@ -234,6 +234,45 @@ AdminApp.prototype.renderPersonsTable = function(persons) {
     // Add event listeners for checkboxes
     document.querySelectorAll('.person-checkbox').forEach(cb => {
         cb.addEventListener('change', () => this.updateBulkButtons());
+    });
+    
+    // Add event listeners for person action buttons
+    document.querySelectorAll('.person-action-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const action = e.currentTarget.getAttribute('data-action');
+            const personId = e.currentTarget.getAttribute('data-person-id');
+            
+            switch (action) {
+                case 'view':
+                    this.viewPerson(personId);
+                    break;
+                case 'edit':
+                    this.editPerson(personId);
+                    break;
+                case 'convert':
+                    this.convertPersonToCustomer(personId);
+                    break;
+                case 'delete':
+                    this.deletePerson(personId);
+                    break;
+                case 'addVehicle':
+                    this.addVehicleToPerson(personId);
+                    break;
+                case 'addToCompany':
+                    this.addPersonToCompany(personId);
+                    break;
+            }
+        });
+    });
+    
+    // Add event listeners for pagination
+    document.querySelectorAll('.persons-page-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = parseInt(e.currentTarget.getAttribute('data-page'));
+            this.goToPersonsPage(page);
+        });
     });
     
     this.updateBulkButtons();
@@ -254,7 +293,7 @@ AdminApp.prototype.renderPersonsPagination = function(pagination) {
     if (pagination.offset > 0) {
         paginationHTML += `
             <li class="page-item">
-                <a class="page-link" href="#" onclick="app.goToPersonsPage(${this.personsCurrentPage - 1})">
+                <a class="page-link persons-page-btn" href="#" data-page="${this.personsCurrentPage - 1}">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             </li>
@@ -268,7 +307,7 @@ AdminApp.prototype.renderPersonsPagination = function(pagination) {
     for (let i = startPage; i <= endPage; i++) {
         paginationHTML += `
             <li class="page-item ${i === this.personsCurrentPage ? 'active' : ''}">
-                <a class="page-link" href="#" onclick="app.goToPersonsPage(${i})">${i}</a>
+                <a class="page-link persons-page-btn" href="#" data-page="${i}">${i}</a>
             </li>
         `;
     }
@@ -277,7 +316,7 @@ AdminApp.prototype.renderPersonsPagination = function(pagination) {
     if (this.personsCurrentPage < pagination.pages) {
         paginationHTML += `
             <li class="page-item">
-                <a class="page-link" href="#" onclick="app.goToPersonsPage(${this.personsCurrentPage + 1})">
+                <a class="page-link persons-page-btn" href="#" data-page="${this.personsCurrentPage + 1}">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             </li>
