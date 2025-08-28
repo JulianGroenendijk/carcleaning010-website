@@ -4269,12 +4269,12 @@ class AdminApp {
                                                                     <div class="form-check">
                                                                         <input class="form-check-input service-checkbox" type="checkbox" 
                                                                                id="service_${service.id}" value="${service.id}" 
-                                                                               data-price="${service.base_price}" data-name="${service.name}"
+                                                                               data-price="${service.price_range_min || service.base_price}" data-name="${service.name}"
                                                                                ${isPreselected ? 'checked' : ''}>
                                                                         <label class="form-check-label w-100" for="service_${service.id}">
                                                                             <div class="d-flex justify-content-between">
                                                                                 <span class="fw-semibold">${service.name}</span>
-                                                                                <span class="text-success">${this.formatPrice(parseFloat(service.base_price))}</span>
+                                                                                <span class="text-success">${this.formatPrice(parseFloat(service.price_range_min || service.base_price))}</span>
                                                                             </div>
                                                                             <small class="text-muted d-block">${service.description || ''}</small>
                                                                             ${service.duration_minutes ? `<small class="text-info">~${Math.round(service.duration_minutes/60)}u</small>` : ''}
@@ -4570,14 +4570,14 @@ class AdminApp {
                                     ${servicesByCategory[category].map(service => `
                                         <div class="form-check mb-2">
                                             <input class="form-check-input service-checkbox" type="checkbox" value="${service.id}" 
-                                                   data-name="${service.name}" data-price="${service.base_price}" data-duration="${service.duration_minutes || 0}">
+                                                   data-name="${service.name}" data-price="${service.price_range_min || service.base_price}" data-duration="${service.duration_minutes || 0}">
                                             <label class="form-check-label w-100" for="service_${service.id}">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div>
                                                         <strong>${service.name}</strong>
                                                         ${service.description ? `<br><small class="text-muted">${service.description}</small>` : ''}
                                                     </div>
-                                                    <span class="badge bg-primary">${this.formatPrice(service.base_price, {showVATStatus: false})}</span>
+                                                    <span class="badge bg-primary">${this.formatPrice(service.price_range_min || service.base_price, {showVATStatus: false})}</span>
                                                 </div>
                                             </label>
                                         </div>
@@ -10468,8 +10468,8 @@ Deze actie is omkeerbaar.
             name: formData.get('name'),
             subtitle: formData.get('subtitle'),
             description: formData.get('description'),
-            price_range_min: formData.get('price_range_min') ? parseInt(formData.get('price_range_min')) : null,
-            price_range_max: formData.get('price_range_max') ? parseInt(formData.get('price_range_max')) : null,
+            price_range_min: formData.get('price_range_min') ? parseFloat(formData.get('price_range_min')) : null,
+            price_range_max: formData.get('price_range_max') ? parseFloat(formData.get('price_range_max')) : null,
             duration_text: formData.get('duration_text'),
             image_url: formData.get('image_url'),
             features: features,
