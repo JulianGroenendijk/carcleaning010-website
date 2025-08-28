@@ -286,16 +286,12 @@ router.put('/:id', validateAppointment, async (req, res) => {
         const {
             customer_id,
             quote_id,
-            scheduled_date,
-            estimated_duration,
-            service_type,
-            service_description,
-            location_type,
-            location_address,
+            appointment_date,
+            start_time,
+            end_time,
             status,
-            notes,
-            reminder_sent,
-            completed_at
+            location,
+            notes
         } = req.body;
 
         // Check of afspraak bestaat
@@ -305,18 +301,18 @@ router.put('/:id', validateAppointment, async (req, res) => {
         }
 
         // Check voor conflicten als datum/tijd wordt gewijzigd
-        if (scheduled_date && estimated_duration) {
+        if (appointment_date && start_time && end_time) {
             const conflictCheck = await query(`
                 SELECT id FROM appointments 
                 WHERE id != $1 
                 AND status NOT IN ('cancelled', 'completed') 
-                AND scheduled_date <= $2 
-                AND (scheduled_date + INTERVAL '1 minute' * estimated_duration) > $3
-            `, [
-                appointmentId,
-                new Date(new Date(scheduled_date).getTime() + estimated_duration * 60000).toISOString(),
-                scheduled_date
-            ]);
+                AND appointment_date = $2 
+                AND (
+                    (start_time <= $3 AND end_time > $3) OR
+                    (start_time < $4 AND end_time >= $4) OR
+                    (start_time >= $3 AND start_time < $4)
+                )
+            `, [appointmentId, appointment_date, start_time, end_time]);
 
             if (conflictCheck.rows.length > 0) {
                 return res.status(409).json({
@@ -330,23 +326,18 @@ router.put('/:id', validateAppointment, async (req, res) => {
             UPDATE appointments SET
                 customer_id = COALESCE($1, customer_id),
                 quote_id = COALESCE($2, quote_id),
-                scheduled_date = COALESCE($3, scheduled_date),
-                estimated_duration = COALESCE($4, estimated_duration),
-                service_type = COALESCE($5, service_type),
-                service_description = COALESCE($6, service_description),
-                location_type = COALESCE($7, location_type),
-                location_address = COALESCE($8, location_address),
-                status = COALESCE($9, status),
-                notes = COALESCE($10, notes),
-                reminder_sent = COALESCE($11, reminder_sent),
-                completed_at = COALESCE($12, completed_at),
+                appointment_date = COALESCE($3, appointment_date),
+                start_time = COALESCE($4, start_time),
+                end_time = COALESCE($5, end_time),
+                status = COALESCE($6, status),
+                location = COALESCE($7, location),
+                notes = COALESCE($8, notes),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $13
+            WHERE id = $9
             RETURNING *
         `, [
-            customer_id, quote_id, scheduled_date, estimated_duration,
-            service_type, service_description, location_type, location_address,
-            status, notes, reminder_sent, completed_at, appointmentId
+            customer_id, quote_id, appointment_date, start_time, 
+            end_time, status, location, notes, appointmentId
         ]);
 
         // Haal volledige afspraak gegevens op

@@ -316,6 +316,9 @@ class AdminApp {
                 case 'reports':
                     await this.loadReports();
                     break;
+                case 'services':
+                    await this.loadServices();
+                    break;
                 case 'settings':
                     console.log('🔧 About to load settings...');
                     await this.loadSettings();
@@ -714,7 +717,7 @@ class AdminApp {
                 <td><strong>#${quote.quote_number || quote.id}</strong></td>
                 <td>${quote.customer_name || 'Onbekend'}</td>
                 <td>${quote.service_type || 'Niet gespecificeerd'}</td>
-                <td class="text-currency">€${(quote.amount || 0).toFixed(2)}</td>
+                <td class="text-currency">${this.formatPrice(quote.amount || 0)}</td>
                 <td>
                     <span class="badge status-${quote.status || 'concept'}">
                         ${this.getStatusText(quote.status || 'concept')}
@@ -729,7 +732,7 @@ class AdminApp {
                         <button class="btn btn-outline-warning" onclick="if(window.adminApp) window.adminApp.viewQuotePDF('${quote.id}'); else alert('AdminApp not loaded yet');" title="PDF Bekijken">
                             <i class="bi bi-file-pdf"></i>
                         </button>
-                        <button class="btn btn-outline-info" onclick="if(window.adminApp) window.adminApp.convertQuoteToInvoice('${quote.id}'); else alert('AdminApp not loaded yet');" title="Naar Factuur">
+                        <button class="btn btn-outline-info" onclick="if(window.adminApp) window.adminApp.convertQuoteToInvoice('${quote.id}'); else alert('AdminApp not loaded yet');" title="${this.getInvoiceTerminology('toInvoice')}">
                             <i class="bi bi-receipt"></i>
                         </button>
                         <button class="btn btn-outline-success" onclick="console.log('Edit button clicked for quote ${quote.id}'); if(window.adminApp) window.adminApp.editQuote(${quote.id}); else alert('AdminApp not loaded yet');" title="Bewerken">
@@ -782,9 +785,9 @@ class AdminApp {
         console.log('✅ Quotes event listeners setup');
     }
     
-    showAddQuoteModal() {
-        console.log('🎯 Add quote modal would open here');
-        this.showToast('Nieuwe offerte functionaliteit komt binnenkort!', 'info');
+    async showAddQuoteModal() {
+        console.log('🎯 Opening standalone quote generator');
+        await this.generateStandaloneQuote();
     }
     
     filterQuotes() {
@@ -856,7 +859,7 @@ class AdminApp {
                             <div class="row mb-3">
                                 <div class="col-12">
                                     <h6 class="text-muted">TOTAAL BEDRAG</h6>
-                                    <h3 class="text-success">€${(parseFloat(quote.amount || quote.total_amount) || 0).toFixed(2)}</h3>
+                                    <h3 class="text-success">${this.formatPrice(parseFloat(quote.amount || quote.total_amount) || 0)}</h3>
                                 </div>
                             </div>
                             
@@ -876,7 +879,7 @@ class AdminApp {
                             </button>
                             ${quote.status === 'sent' || quote.status === 'approved' ? `
                             <button type="button" class="btn btn-success" onclick="if(window.adminApp) window.adminApp.convertQuoteToInvoice('${quote.id}');">
-                                <i class="bi bi-receipt"></i> Naar Factuur
+                                <i class="bi bi-receipt"></i> ${this.getInvoiceTerminology('toInvoice')}
                             </button>
                             ` : ''}
                         </div>
@@ -921,7 +924,7 @@ class AdminApp {
     
     convertQuoteToInvoice(quoteId) {
         console.log('📄➡️📋 Converting quote to invoice:', quoteId);
-        this.showToast('Offerte naar factuur conversie komt binnenkort!', 'info');
+        this.showToast(`Offerte naar ${this.getInvoiceTerminology('invoice')} conversie komt binnenkort!`, 'info');
     }
     
     async editQuote(id) {
@@ -967,7 +970,7 @@ class AdminApp {
                     <i class="bi bi-download"></i> PDF Downloaden
                 </button>
                 <button type="button" class="btn btn-outline-info" onclick="adminApp.convertQuoteToInvoice('${quote.id}')">
-                    <i class="bi bi-receipt"></i> Naar Factuur
+                    <i class="bi bi-receipt"></i> ${this.getInvoiceTerminology('toInvoice')}
                 </button>
                 <button type="button" class="btn btn-primary" onclick="adminApp.editQuote(${quote.id})">
                     <i class="bi bi-pencil"></i> Bewerken
@@ -1049,8 +1052,8 @@ class AdminApp {
                                 <tr>
                                     <td>${item.description}</td>
                                     <td class="text-end">${item.quantity || 1}x</td>
-                                    <td class="text-end">€${(item.price || 0).toFixed(2)}</td>
-                                    <td class="text-end">€${((item.quantity || 1) * (item.price || 0)).toFixed(2)}</td>
+                                    <td class="text-end">${this.formatPrice(item.price || 0, { showVATStatus: false })}</td>
+                                    <td class="text-end">${this.formatPrice((item.quantity || 1) * (item.price || 0), { showVATStatus: false })}</td>
                                 </tr>
                             `).join('') : `
                                 <tr><td colspan="4" class="text-center text-muted">Geen service items gedefinieerd</td></tr>
@@ -1061,12 +1064,12 @@ class AdminApp {
                 <div class="col-md-4">
                     <h6 class="text-muted mb-3">TOTAAL</h6>
                     <table class="table table-sm">
-                        ${this.systemSettings.vat_enabled ? `
-                        <tr><td>Subtotaal:</td><td class="text-end">€${((quote.amount || 0) / (1 + (this.systemSettings.vat_percentage / 100))).toFixed(2)}</td></tr>
-                        <tr><td>BTW (${this.systemSettings.vat_percentage}%):</td><td class="text-end">€${((quote.amount || 0) - ((quote.amount || 0) / (1 + (this.systemSettings.vat_percentage / 100)))).toFixed(2)}</td></tr>
-                        <tr class="table-active"><td><strong>Totaal:</strong></td><td class="text-end"><strong>€${(quote.amount || 0).toFixed(2)}</strong></td></tr>
+                        ${(this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '') ? `
+                        <tr><td>Subtotaal:</td><td class="text-end">${this.formatCurrency((quote.amount || 0) / (1 + (this.systemSettings.vat_percentage / 100)))}</td></tr>
+                        <tr><td>BTW (${this.systemSettings.vat_percentage}%):</td><td class="text-end">${this.formatCurrency((quote.amount || 0) - ((quote.amount || 0) / (1 + (this.systemSettings.vat_percentage / 100))))}</td></tr>
+                        <tr class="table-active"><td><strong>Totaal:</strong></td><td class="text-end"><strong>${this.formatPrice(quote.amount || 0, { showVATStatus: false })}</strong></td></tr>
                         ` : `
-                        <tr class="table-active"><td><strong>Totaal:</strong></td><td class="text-end"><strong>€${(quote.amount || 0).toFixed(2)}</strong></td></tr>
+                        <tr class="table-active"><td><strong>Totaal:</strong></td><td class="text-end"><strong>${this.formatPrice(quote.amount || 0)}</strong></td></tr>
                         `}
                     </table>
                 </div>
@@ -1271,12 +1274,12 @@ class AdminApp {
     async convertQuoteToInvoice(id) {
         console.log('🧾 Convert quote to invoice:', id);
         
-        if (!confirm('Wilt u deze offerte omzetten naar een factuur?')) {
+        if (!confirm(`Wilt u deze offerte omzetten naar een ${this.getInvoiceTerminology('invoice')}?`)) {
             return;
         }
         
         // Show loading animation
-        const loadingToast = this.showPDFLoadingToast('Factuur aanmaken...');
+        const loadingToast = this.showPDFLoadingToast(`${this.getInvoiceTerminology('Invoice')} aanmaken...`);
         
         try {
             const response = await fetch(`${this.baseURL}/api/quotes/${id}/convert-to-invoice`, {
@@ -1294,7 +1297,7 @@ class AdminApp {
             const invoice = await response.json();
             
             this.hidePDFLoadingToast(loadingToast);
-            this.showToast(`✅ Factuur ${invoice.invoice_number} succesvol aangemaakt!`, 'success');
+            this.showToast(`✅ ${this.getInvoiceTerminology('Invoice')} ${invoice.invoice_number} succesvol aangemaakt!`, 'success');
             
             // Close any open modals
             this.closeModal();
@@ -1305,7 +1308,7 @@ class AdminApp {
         } catch (error) {
             console.error('Error converting quote to invoice:', error);
             this.hidePDFLoadingToast(loadingToast);
-            this.showToast('❌ Fout bij omzetten naar factuur', 'danger');
+            this.showToast(`❌ Fout bij omzetten naar ${this.getInvoiceTerminology('invoice')}`, 'danger');
         }
     }
 
@@ -1581,12 +1584,13 @@ class AdminApp {
                 <div class="time-column-header">Tijd</div>
         `;
         
-        // Add day headers
-        days.forEach(day => {
+        // Add day headers with debug info
+        days.forEach((day, index) => {
             const dayDate = new Date(day);
             const isToday = dayDate.toDateString() === new Date().toDateString();
+            console.log(`📅 Calendar day ${index}: ${day} (${this.getDayName(dayDate)})`);
             calendarHTML += `
-                <div class="day-header ${isToday ? 'today' : ''}">
+                <div class="day-header ${isToday ? 'today' : ''}" data-day-index="${index}" data-date="${day}">
                     <div class="day-name">${this.getDayName(dayDate)}</div>
                     <div class="day-date">${dayDate.getDate()}/${dayDate.getMonth() + 1}</div>
                 </div>
@@ -1602,12 +1606,29 @@ class AdminApp {
                     <div class="time-label">${timeSlot}</div>
             `;
             
-            days.forEach(day => {
+            days.forEach((day, dayIndex) => {
                 const dayAppointments = this.getAppointmentsForTimeSlot(appointments, day, timeSlot);
+                const isInAppointmentPeriod = this.isTimeSlotInAppointment(appointments, day, timeSlot);
+                const appointmentInPeriod = appointments.find(apt => {
+                    const aptDateObj = new Date(apt.appointment_date);
+                    const aptDate = `${aptDateObj.getFullYear()}-${String(aptDateObj.getMonth() + 1).padStart(2, '0')}-${String(aptDateObj.getDate()).padStart(2, '0')}`;
+                    if (aptDate !== day) return false;
+                    const startTime = apt.start_time.substring(0, 5);
+                    const endTime = apt.end_time.substring(0, 5);
+                    const [startHour, startMin] = startTime.split(':').map(Number);
+                    const [endHour, endMin] = endTime.split(':').map(Number);
+                    const [slotHour, slotMin] = timeSlot.split(':').map(Number);
+                    const startMinutes = startHour * 60 + startMin;
+                    const endMinutes = endHour * 60 + endMin;
+                    const slotMinutes = slotHour * 60 + slotMin;
+                    return slotMinutes >= startMinutes && slotMinutes < endMinutes;
+                });
+                
                 calendarHTML += `
-                    <div class="time-slot" data-date="${day}" data-time="${timeSlot}" 
+                    <div class="time-slot ${isInAppointmentPeriod ? 'has-appointment' : ''}" data-date="${day}" data-time="${timeSlot}" data-day-index="${dayIndex}"
                          ondrop="adminApp.handleAppointmentDrop(event)" 
-                         ondragover="adminApp.allowDrop(event)">
+                         ondragover="adminApp.allowDrop(event)"
+                         ${isInAppointmentPeriod && appointmentInPeriod ? `onmousedown="adminApp.handleTimeSlotDrag(event, '${appointmentInPeriod.id}')"` : ''}>
                         ${dayAppointments.map(apt => this.renderAppointmentBlock(apt)).join('')}
                     </div>
                 `;
@@ -1624,7 +1645,10 @@ class AdminApp {
     getPeriodDates(period) {
         const today = new Date();
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+        // Fix week start calculation: Sunday is 0, Monday should be start of week
+        const dayOfWeek = today.getDay();
+        const daysFromMonday = (dayOfWeek === 0) ? -6 : -(dayOfWeek - 1); // Sunday: go back 6 days, other days: go back (day-1) days
+        startOfWeek.setDate(today.getDate() + daysFromMonday);
         
         switch (period) {
             case 'today':
@@ -1687,9 +1711,42 @@ class AdminApp {
 
     getAppointmentsForTimeSlot(appointments, date, timeSlot) {
         return appointments.filter(apt => {
-            const aptDate = new Date(apt.appointment_date).toISOString().split('T')[0];
-            const aptTime = apt.start_time.substring(0, 5); // Get HH:MM format
-            return aptDate === date && aptTime === timeSlot;
+            // Fix timezone conversion issue by using local date extraction
+            const aptDateObj = new Date(apt.appointment_date);
+            const aptDate = `${aptDateObj.getFullYear()}-${String(aptDateObj.getMonth() + 1).padStart(2, '0')}-${String(aptDateObj.getDate()).padStart(2, '0')}`;
+            const aptStartTime = apt.start_time.substring(0, 5); // Get HH:MM format
+            
+            // Debug output - remove after debugging
+            if (aptDate === date) {
+                console.log(`🔍 Matching: apt(${aptDate} ${aptStartTime}) vs slot(${date} ${timeSlot})`);
+            }
+            
+            // Only show appointment in its start time slot
+            return aptDate === date && aptStartTime === timeSlot;
+        });
+    }
+
+    // Check if a time slot is within an appointment period (for coloring)
+    isTimeSlotInAppointment(appointments, date, timeSlot) {
+        return appointments.some(apt => {
+            const aptDateObj = new Date(apt.appointment_date);
+            const aptDate = `${aptDateObj.getFullYear()}-${String(aptDateObj.getMonth() + 1).padStart(2, '0')}-${String(aptDateObj.getDate()).padStart(2, '0')}`;
+            
+            if (aptDate !== date) return false;
+            
+            const startTime = apt.start_time.substring(0, 5);
+            const endTime = apt.end_time.substring(0, 5);
+            
+            // Convert times to minutes for comparison
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const [endHour, endMin] = endTime.split(':').map(Number);
+            const [slotHour, slotMin] = timeSlot.split(':').map(Number);
+            
+            const startMinutes = startHour * 60 + startMin;
+            const endMinutes = endHour * 60 + endMin;
+            const slotMinutes = slotHour * 60 + slotMin;
+            
+            return slotMinutes >= startMinutes && slotMinutes < endMinutes;
         });
     }
 
@@ -1698,18 +1755,29 @@ class AdminApp {
         const customColor = appointment.color || '';
         const duration = this.calculateAppointmentDuration(appointment.start_time, appointment.end_time);
         
+        // Debug logging for appointment data - show all properties
+        console.log('🏗️ Rendering appointment block:', JSON.stringify(appointment, null, 2));
+        
+        // Calculate height based on duration (each 30-minute slot is 60px, so 2px per minute)
+        const heightPx = Math.max(40, (duration * 2)); // Minimum 40px height
+        
         return `
             <div class="appointment-block ${statusClass}" 
                  data-appointment-id="${appointment.id}"
                  data-duration="${duration}"
-                 style="${customColor ? `background-color: ${customColor} !important; cursor: grab;` : 'cursor: grab;'}"
+                 style="height: ${heightPx}px; background-color: ${customColor || '#0d6efd'} !important; cursor: grab;"
                  onmousedown="adminApp.handleAppointmentDragStart(event)"
-                 title="${appointment.customer_name} - ${appointment.start_time} tot ${appointment.end_time}">
+                 title="${appointment.customer_name || appointment.customer_first_name + ' ' + appointment.customer_last_name || 'Geen klant'} - ${appointment.start_time} tot ${appointment.end_time}">
                 
-                <div class="appointment-content">
-                    <div class="appointment-title">${appointment.customer_name}</div>
-                    <div class="appointment-time">${this.formatTime(appointment.start_time)} - ${this.formatTime(appointment.end_time)}</div>
-                    <div class="appointment-status">${this.formatStatus(appointment.status)}</div>
+                <div class="appointment-content" onclick="event.stopPropagation(); adminApp.openAppointmentModal('${appointment.id}')">
+                    <div class="appointment-title">${appointment.customer_name || 'Test User'}</div>
+                    <div class="appointment-time">${appointment.start_time || '00:00'} - ${appointment.end_time || '00:00'}</div>
+                    <div class="appointment-status">${appointment.status || 'scheduled'}</div>
+                </div>
+                
+                <!-- View details button -->
+                <div class="appointment-view-btn" onclick="event.stopPropagation(); adminApp.viewAppointmentDetails('${appointment.id}')">
+                    <i class="bi bi-eye"></i>
                 </div>
                 
                 <!-- Color picker button -->
@@ -1850,6 +1918,101 @@ class AdminApp {
     }
 
     // Enhanced drag-and-drop functions (Google Calendar style)
+    handleTimeSlotDrag(event, appointmentId) {
+        // Find the actual appointment block for this ID
+        const appointmentBlock = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
+        if (appointmentBlock) {
+            // Create a new event object that mimics the original
+            const newEvent = {
+                target: appointmentBlock,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                preventDefault: () => event.preventDefault(),
+                stopPropagation: () => event.stopPropagation()
+            };
+            this.handleAppointmentDragStart(newEvent);
+        }
+    }
+
+    openAppointmentModal(appointmentId) {
+        // Find appointment data
+        if (!this.appointments || !Array.isArray(this.appointments)) {
+            console.warn('No appointments data available');
+            return;
+        }
+        const appointment = this.appointments.find(apt => apt.id === appointmentId);
+        if (appointment) {
+            this.showEditAppointmentModal(appointment);
+        }
+    }
+
+    viewAppointmentDetails(appointmentId) {
+        // Find appointment data
+        if (!this.appointments || !Array.isArray(this.appointments)) {
+            console.warn('No appointments data available');
+            return;
+        }
+        const appointment = this.appointments.find(apt => apt.id === appointmentId);
+        if (appointment) {
+            this.showAppointmentDetailsModal(appointment);
+        }
+    }
+
+    showAppointmentDetailsModal(appointment) {
+        const modalHTML = `
+            <div class="modal fade" id="appointmentDetailsModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Afspraak Details</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Klant:</strong> ${appointment.customer_name || 'Onbekend'}</p>
+                                    <p><strong>Email:</strong> ${appointment.customer_email || 'Niet opgegeven'}</p>
+                                    <p><strong>Telefoon:</strong> ${appointment.customer_phone || 'Niet opgegeven'}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Datum:</strong> ${new Date(appointment.appointment_date).toLocaleDateString('nl-NL')}</p>
+                                    <p><strong>Tijd:</strong> ${this.formatTime(appointment.start_time)} - ${this.formatTime(appointment.end_time)}</p>
+                                    <p><strong>Status:</strong> <span class="badge ${this.getAppointmentStatusClass(appointment.status)}">${this.formatStatus(appointment.status)}</span></p>
+                                </div>
+                            </div>
+                            ${appointment.notes ? `
+                                <div class="mt-3">
+                                    <p><strong>Notities:</strong></p>
+                                    <p class="text-muted">${appointment.notes}</p>
+                                </div>
+                            ` : ''}
+                            ${appointment.location ? `
+                                <p><strong>Locatie:</strong> ${appointment.location}</p>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                            <button type="button" class="btn btn-primary" onclick="adminApp.showEditAppointmentModal(${JSON.stringify(appointment).replace(/"/g, '&quot;')}); $('#appointmentDetailsModal').modal('hide');">Bewerken</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal
+        const existingModal = document.getElementById('appointmentDetailsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add new modal
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('appointmentDetailsModal'));
+        modal.show();
+    }
+
     handleAppointmentDragStart(event) {
         // Prevent click event from firing during drag
         this.dragStartTime = Date.now();
@@ -1865,6 +2028,10 @@ class AdminApp {
         event.stopPropagation();
         
         const appointmentBlock = event.currentTarget;
+        if (!appointmentBlock || !appointmentBlock.dataset) {
+            console.warn('No valid appointment block found for drag');
+            return;
+        }
         const appointmentId = appointmentBlock.dataset.appointmentId;
         
         // Store drag data
@@ -1879,9 +2046,13 @@ class AdminApp {
             threshold: 5 // Minimum pixels to move before considering it a drag
         };
         
+        // Store bound functions for proper cleanup
+        this.boundHandleDragMove = this.handleDragMove.bind(this);
+        this.boundHandleDragEnd = this.handleDragEnd.bind(this);
+        
         // Add global drag event listeners
-        document.addEventListener('mousemove', this.handleDragMove.bind(this));
-        document.addEventListener('mouseup', this.handleDragEnd.bind(this));
+        document.addEventListener('mousemove', this.boundHandleDragMove);
+        document.addEventListener('mouseup', this.boundHandleDragEnd);
         
         console.log('🎯 Started smooth dragging:', appointmentId);
     }
@@ -1923,15 +2094,26 @@ class AdminApp {
         
         if (!this.hasDragged) return;
         
-        // Update ghost position
+        // Update ghost position (center it better on cursor)
         if (this.dragData.ghostElement) {
-            this.dragData.ghostElement.style.left = (event.clientX - 50) + 'px';
-            this.dragData.ghostElement.style.top = (event.clientY - 15) + 'px';
+            const rect = this.dragData.ghostElement.getBoundingClientRect();
+            this.dragData.ghostElement.style.left = (event.clientX - rect.width / 2) + 'px';
+            this.dragData.ghostElement.style.top = (event.clientY - rect.height / 2) + 'px';
+        }
+        
+        // Temporarily hide ghost element for accurate detection
+        if (this.dragData.ghostElement) {
+            this.dragData.ghostElement.style.display = 'none';
         }
         
         // Highlight drop targets
         const elementBelow = document.elementFromPoint(event.clientX, event.clientY);
         const timeSlot = elementBelow?.closest('.time-slot');
+        
+        // Restore ghost element
+        if (this.dragData.ghostElement) {
+            this.dragData.ghostElement.style.display = 'block';
+        }
         
         // Clear previous highlights
         document.querySelectorAll('.time-slot.drag-highlight').forEach(slot => {
@@ -1940,15 +2122,37 @@ class AdminApp {
         
         if (timeSlot && timeSlot !== this.dragData.originalParent) {
             timeSlot.classList.add('drag-highlight');
+            console.log('🎯 Highlighting slot:', timeSlot.dataset.date, timeSlot.dataset.time);
         }
     }
 
     async handleDragEnd(event) {
         if (!this.dragData) return;
         
+        // Temporarily hide ghost element to get correct element below
+        if (this.dragData.ghostElement) {
+            this.dragData.ghostElement.style.display = 'none';
+        }
+        
         // Find drop target
         const elementBelow = document.elementFromPoint(event.clientX, event.clientY);
         const timeSlot = elementBelow?.closest('.time-slot');
+        
+        console.log('🎯 Drop detection:', {
+            mousePos: { x: event.clientX, y: event.clientY },
+            elementBelow: elementBelow?.className || elementBelow?.tagName,
+            timeSlot: timeSlot ? {
+                date: timeSlot.dataset.date,
+                time: timeSlot.dataset.time,
+                dayIndex: timeSlot.dataset.dayIndex,
+                className: timeSlot.className
+            } : null,
+            originalParent: this.dragData.originalParent ? {
+                date: this.dragData.originalParent.dataset.date,
+                time: this.dragData.originalParent.dataset.time,
+                dayIndex: this.dragData.originalParent.dataset.dayIndex
+            } : null
+        });
         
         // Clean up ghost element
         if (this.dragData.ghostElement) {
@@ -1966,16 +2170,23 @@ class AdminApp {
         });
         
         // Remove event listeners
-        document.removeEventListener('mousemove', this.handleDragMove.bind(this));
-        document.removeEventListener('mouseup', this.handleDragEnd.bind(this));
+        if (this.boundHandleDragMove) {
+            document.removeEventListener('mousemove', this.boundHandleDragMove);
+            this.boundHandleDragMove = null;
+        }
+        if (this.boundHandleDragEnd) {
+            document.removeEventListener('mouseup', this.boundHandleDragEnd);
+            this.boundHandleDragEnd = null;
+        }
         
         // Handle drop only if we actually dragged
         if (this.hasDragged && timeSlot && timeSlot !== this.dragData.originalParent) {
             await this.performAppointmentMove(timeSlot);
-        } else if (!this.hasDragged) {
+        } else if (!this.hasDragged && this.dragData && this.dragData.appointmentId) {
             // If we didn't drag, treat it as a click (but delay slightly to avoid conflicts)
+            const appointmentId = this.dragData.appointmentId;
             setTimeout(() => {
-                this.showAppointmentDetails(this.dragData.appointmentId);
+                this.showAppointmentDetails(appointmentId);
             }, 10);
         }
         
@@ -1989,7 +2200,7 @@ class AdminApp {
             const newDate = targetSlot.dataset.date;
             const newTime = targetSlot.dataset.time;
             
-            // Get original appointment data to preserve duration
+            // Get original appointment data to preserve duration and customer_id
             const appointment = await this.apiCall('GET', `/api/appointments/${appointmentId}`);
             const originalDuration = this.calculateAppointmentDuration(appointment.start_time, appointment.end_time);
             
@@ -2005,12 +2216,27 @@ class AdminApp {
             // Show loading state
             this.dragData.originalBlock.classList.add('updating');
             
-            // Perform API update
-            await this.apiCall('PUT', `/api/appointments/${appointmentId}`, {
+            // Perform API update with correct field names and required customer_id
+            const updateData = {
+                customer_id: appointment.customer_id,
                 appointment_date: newDate,
                 start_time: newTime,
                 end_time: newEndTime
+            };
+            
+            console.log('🔄 Sending drag update:', updateData);
+            console.log('📅 Original appointment:', {
+                date: appointment.appointment_date,
+                start: appointment.start_time,
+                end: appointment.end_time
             });
+            console.log('🎯 Target slot:', {
+                date: newDate,
+                time: newTime,
+                element: targetSlot
+            });
+            
+            await this.apiCall('PUT', `/api/appointments/${appointmentId}`, updateData);
             
             this.showNotification('Afspraak succesvol verplaatst!', 'success');
             this.refreshCalendarView();
@@ -2020,7 +2246,7 @@ class AdminApp {
             this.showNotification('Fout bij verplaatsen afspraak: ' + error.message, 'error');
             
             // Remove loading state
-            if (this.dragData.originalBlock) {
+            if (this.dragData && this.dragData.originalBlock) {
                 this.dragData.originalBlock.classList.remove('updating');
             }
         }
@@ -2148,11 +2374,19 @@ class AdminApp {
 
     async setAppointmentColor(appointmentId, color) {
         try {
+            // Get current appointment data first
+            const appointment = await this.apiCall('GET', `/api/appointments/${appointmentId}`);
+            
+            // Update with all required fields
             await this.apiCall('PUT', `/api/appointments/${appointmentId}`, {
-                color: color
+                customer_id: appointment.customer_id,
+                appointment_date: appointment.appointment_date,
+                start_time: appointment.start_time,
+                end_time: appointment.end_time
+                // Note: color is not stored in database, only used for display
             });
             
-            this.showNotification('Kleur succesvol bijgewerkt!', 'success');
+            this.showNotification('Afspraak bijgewerkt!', 'success');
             this.refreshCalendarView();
             
             // Close color picker
@@ -2333,9 +2567,9 @@ class AdminApp {
             originalBlock: appointmentBlock,
             originalTimeSlot: originalTimeSlot,
             originalHeight: appointmentBlock.offsetHeight,
-            timeSlotHeight: 60, // Height of each 30-minute slot
+            timeSlotHeight: 30, // Height of each 15-minute increment (30min slot / 2)
             previewElement: null,
-            minDuration: 30 // Minimum 30 minutes
+            minDuration: 15 // Minimum 15 minutes
         };
         
         // Create preview element
@@ -2345,8 +2579,12 @@ class AdminApp {
         document.body.style.cursor = 'ns-resize';
         appointmentBlock.style.userSelect = 'none';
         
-        document.addEventListener('mousemove', this.handleSmoothResize.bind(this));
-        document.addEventListener('mouseup', this.stopSmoothResize.bind(this));
+        // Store bound functions for proper cleanup
+        this.boundHandleSmoothResize = this.handleSmoothResize.bind(this);
+        this.boundStopSmoothResize = this.stopSmoothResize.bind(this);
+        
+        document.addEventListener('mousemove', this.boundHandleSmoothResize);
+        document.addEventListener('mouseup', this.boundStopSmoothResize);
         
         console.log('🔧 Started smooth resizing:', { appointmentId, direction });
     }
@@ -2450,67 +2688,183 @@ class AdminApp {
         this.resizing.originalBlock.style.userSelect = '';
         
         // Remove event listeners
-        document.removeEventListener('mousemove', this.handleSmoothResize.bind(this));
-        document.removeEventListener('mouseup', this.stopSmoothResize.bind(this));
-        
-        // Only resize if there's significant change (at least 15 minutes)
-        if (Math.abs(deltaY) > 30) {
-            await this.performResize(slotsChanged);
+        if (this.boundHandleSmoothResize) {
+            document.removeEventListener('mousemove', this.boundHandleSmoothResize);
+            this.boundHandleSmoothResize = null;
+        }
+        if (this.boundStopSmoothResize) {
+            document.removeEventListener('mouseup', this.boundStopSmoothResize);
+            this.boundStopSmoothResize = null;
         }
         
-        this.resizing = null;
+        // Only resize if there's significant change (at least 15 minutes)
+        console.log('🔧 Resize check:', { deltaY, slotsChanged, threshold: Math.abs(deltaY) });
+        if (Math.abs(deltaY) > 15) { // Lower threshold for more responsive resizing
+            console.log('✅ Performing resize with slotsChanged:', slotsChanged);
+            await this.performResize(slotsChanged);
+        } else {
+            console.log('❌ Not resizing - delta too small:', Math.abs(deltaY));
+            // Clear resizing state even if no resize performed
+            this.resizing = null;
+        }
     }
 
     async performResize(slotsChanged) {
+        let updateData = null; // Declare at top level for error handling
+        let appointment = null;
+        let newStartTime = null;
+        let newEndTime = null;
+        let resizeData = null; // Declare at top level for error handling
+        
         try {
-            const appointment = await this.apiCall('GET', `/api/appointments/${this.resizing.appointmentId}`);
-            const minutesChanged = slotsChanged * 30;
+            resizeData = this.resizing; // Store reference before clearing
+            appointment = await this.apiCall('GET', `/api/appointments/${resizeData.appointmentId}`);
+            const minutesChanged = slotsChanged * 15; // 15-minute increments
             
-            let newStartTime = appointment.start_time;
-            let newEndTime = appointment.end_time;
+            newStartTime = appointment.start_time;
+            newEndTime = appointment.end_time;
             
-            if (this.resizing.direction === 'top') {
-                // Adjust start time (make appointment earlier/later)
+            console.log('🔧 Resize calculation:', {
+                direction: resizeData.direction,
+                slotsChanged,
+                minutesChanged,
+                original_start: appointment.start_time,
+                original_end: appointment.end_time
+            });
+            
+            if (resizeData.direction === 'top') {
+                // Adjust start time (dragging top handle up/down)
                 const [hours, minutes] = appointment.start_time.split(':').map(Number);
-                const totalMinutes = Math.max(0, (hours * 60 + minutes) - minutesChanged);
+                const originalMinutes = hours * 60 + minutes;
+                const totalMinutes = Math.max(0, originalMinutes + minutesChanged);
                 const newHours = Math.floor(totalMinutes / 60);
                 const newMinutes = totalMinutes % 60;
                 newStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                console.log('📈 Top resize:', { 
+                    originalMinutes, 
+                    minutesChanged, 
+                    totalMinutes, 
+                    newStartTime 
+                });
             } else {
-                // Adjust end time (make appointment longer/shorter)
+                // Adjust end time (dragging bottom handle up/down)
                 const [hours, minutes] = appointment.end_time.split(':').map(Number);
-                const totalMinutes = Math.max(0, (hours * 60 + minutes) + minutesChanged);
+                const originalMinutes = hours * 60 + minutes;
+                const totalMinutes = Math.max(15, originalMinutes + minutesChanged);
                 const newHours = Math.floor(totalMinutes / 60);
                 const newMinutes = totalMinutes % 60;
                 newEndTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                console.log('📉 Bottom resize:', { 
+                    originalMinutes, 
+                    minutesChanged, 
+                    totalMinutes, 
+                    newEndTime 
+                });
             }
             
-            // Validate minimum duration
+            // Ensure consistent time format (HH:MM only, no seconds)
+            newStartTime = newStartTime.split(':').slice(0, 2).join(':');
+            newEndTime = newEndTime.split(':').slice(0, 2).join(':');
+            
+            // Validate minimum duration and logical order
             const startTotalMinutes = newStartTime.split(':').reduce((h, m) => h * 60 + +m);
             const endTotalMinutes = newEndTime.split(':').reduce((h, m) => h * 60 + +m);
-            if (endTotalMinutes - startTotalMinutes < 30) {
-                this.showNotification('Minimum afspraak duur is 30 minuten', 'warning');
+            const duration = endTotalMinutes - startTotalMinutes;
+            
+            console.log('⏰ Time validation:', {
+                startTime: newStartTime,
+                endTime: newEndTime,
+                startMinutes: startTotalMinutes,
+                endMinutes: endTotalMinutes,
+                duration: duration
+            });
+            
+            if (duration < 15) {
+                this.showNotification('Minimum afspraak duur is 15 minuten', 'warning');
+                console.warn('❌ Validation failed: duration too short:', duration);
+                if (this.resizing && this.resizing.originalBlock) {
+                    this.resizing.originalBlock.classList.remove('updating');
+                    this.resizing.originalBlock.style.opacity = '1';
+                }
+                this.resizing = null;
+                return;
+            }
+            
+            if (endTotalMinutes <= startTotalMinutes) {
+                this.showNotification('Eindtijd moet na starttijd zijn', 'warning');
+                console.warn('❌ Validation failed: end time before start time', {
+                    startTime: newStartTime,
+                    endTime: newEndTime,
+                    direction: resizeData.direction,
+                    slotsChanged,
+                    minutesChanged
+                });
+                if (this.resizing && this.resizing.originalBlock) {
+                    this.resizing.originalBlock.classList.remove('updating');
+                    this.resizing.originalBlock.style.opacity = '1';
+                }
+                this.resizing = null;
                 return;
             }
             
             // Show updating state
-            this.resizing.originalBlock.classList.add('updating');
+            resizeData.originalBlock.classList.add('updating');
             
-            await this.apiCall('PUT', `/api/appointments/${this.resizing.appointmentId}`, {
-                start_time: newStartTime,
-                end_time: newEndTime
+            // Ensure times are in HH:MM format (remove seconds if present)
+            const formatTime = (timeString) => {
+                // Handle both HH:MM and HH:MM:SS formats
+                if (typeof timeString === 'string') {
+                    return timeString.substring(0, 5); // Take only HH:MM part
+                }
+                return timeString;
+            };
+
+            updateData = {
+                customer_id: appointment.customer_id,
+                appointment_date: appointment.appointment_date,
+                start_time: formatTime(newStartTime),
+                end_time: formatTime(newEndTime),
+                status: appointment.status || 'scheduled'
+            };
+            
+            console.log('📝 Formatted update data:', {
+                original_start: appointment.start_time,
+                original_end: appointment.end_time,
+                new_start: newStartTime,
+                new_end: newEndTime,
+                formatted_start: formatTime(newStartTime),
+                formatted_end: formatTime(newEndTime)
             });
             
+            console.log('🔄 Sending resize update:', updateData);
+            const result = await this.apiCall('PUT', `/api/appointments/${resizeData.appointmentId}`, updateData);
+            console.log('✅ Resize API success:', result);
+            
             this.showNotification('Afspraak duur succesvol aangepast!', 'success');
-            this.refreshCalendarView();
+            console.log('🔄 Refreshing calendar view after resize...');
+            await this.refreshCalendarView();
+            console.log('✅ Calendar view refreshed');
+            this.resizing = null;
             
         } catch (error) {
             console.error('Error resizing appointment:', error);
+            console.error('Error details:', {
+                updateData,
+                appointmentId: resizeData.appointmentId,
+                originalAppointment: appointment,
+                newStartTime,
+                newEndTime
+            });
             this.showNotification('Fout bij aanpassen duur: ' + error.message, 'error');
             
             if (this.resizing && this.resizing.originalBlock) {
                 this.resizing.originalBlock.classList.remove('updating');
+                // Reset block to original state
+                this.resizing.originalBlock.style.opacity = '1';
+                this.resizing.originalBlock.style.height = this.resizing.originalHeight + 'px';
+                console.log('🔄 Reset appointment block to original state');
             }
+            this.resizing = null;
         }
     }
 
@@ -2596,6 +2950,20 @@ class AdminApp {
                 transition: background-color 0.2s ease;
             }
             
+            .time-slot.has-appointment {
+                background-color: rgba(13, 110, 253, 0.1);
+                border: 1px solid rgba(13, 110, 253, 0.3);
+                cursor: grab;
+            }
+            
+            .time-slot.has-appointment:hover {
+                background-color: rgba(13, 110, 253, 0.1);
+            }
+            
+            .time-slot.has-appointment:active {
+                cursor: grabbing;
+            }
+            
             .time-slot:hover {
                 background-color: #e3f2fd;
             }
@@ -2613,12 +2981,14 @@ class AdminApp {
                 bottom: 2px;
                 border-radius: 6px;
                 padding: 4px 6px;
-                color: white;
+                color: white !important;
                 cursor: move;
                 font-size: 0.75rem;
                 line-height: 1.2;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 transition: transform 0.2s ease, box-shadow 0.2s ease;
+                background-color: #0d6efd !important;
+                border: 1px solid rgba(255,255,255,0.2);
             }
             
             .appointment-block:hover {
@@ -2635,7 +3005,11 @@ class AdminApp {
             .appointment-content {
                 position: relative;
                 z-index: 2;
-                pointer-events: none;
+                pointer-events: auto;
+                cursor: pointer;
+                padding: 2px;
+                color: white !important;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.5);
             }
             
             .appointment-title {
@@ -2643,19 +3017,48 @@ class AdminApp {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+                color: white !important;
+                font-size: 0.8rem;
+                line-height: 1.2;
             }
             
             .appointment-time {
                 font-size: 0.65rem;
                 opacity: 0.9;
+                color: white !important;
             }
             
             .appointment-status {
                 font-size: 0.65rem;
                 opacity: 0.8;
+                color: white !important;
             }
             
             /* Color picker button */
+            .appointment-view-btn {
+                position: absolute;
+                top: 2px;
+                right: 20px;
+                width: 16px;
+                height: 16px;
+                background-color: rgba(255,255,255,0.8);
+                border-radius: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 10px;
+                color: #333;
+                cursor: pointer;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                z-index: 3;
+                pointer-events: auto;
+            }
+            
+            .appointment-block:hover .appointment-view-btn {
+                opacity: 1;
+            }
+
             .appointment-color-picker {
                 position: absolute;
                 top: 2px;
@@ -2683,34 +3086,61 @@ class AdminApp {
             /* Resize handles */
             .resize-handle {
                 position: absolute;
-                left: 0;
-                right: 0;
-                height: 4px;
-                background-color: rgba(255,255,255,0.3);
+                left: 2px;
+                right: 2px;
+                height: 6px;
+                background-color: rgba(0, 123, 255, 0.4);
                 cursor: ns-resize;
                 opacity: 0;
-                transition: opacity 0.2s ease;
-                z-index: 3;
+                transition: all 0.2s ease;
+                z-index: 50;
                 pointer-events: auto;
+                border-radius: 3px;
             }
             
             .resize-top {
-                top: 0;
-                border-radius: 6px 6px 0 0;
+                top: -1px;
+                border-radius: 6px 6px 3px 3px;
             }
             
             .resize-bottom {
-                bottom: 0;
-                border-radius: 0 0 6px 6px;
+                bottom: -6px;
+                border-radius: 6px 6px 3px 3px;
+                height: 12px;
+                background-color: rgba(0, 123, 255, 0.6);
+                z-index: 50;
             }
             
             .appointment-block:hover .resize-handle {
+                opacity: 0.8;
+            }
+            
+            .appointment-block:hover .resize-bottom {
                 opacity: 1;
             }
             
-            .resize-handle:hover {
-                background-color: rgba(255,255,255,0.6);
-                height: 6px;
+            .resize-top:hover {
+                background-color: rgba(0, 123, 255, 0.8);
+                height: 8px;
+                opacity: 1 !important;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            }
+            
+            .resize-bottom:hover {
+                background-color: rgba(0, 123, 255, 1);
+                height: 16px;
+                opacity: 1 !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                border: 2px solid rgba(0, 123, 255, 1);
+                bottom: -8px;
+                cursor: ns-resize !important;
+                transform: scaleY(1.2);
+                z-index: 100;
+            }
+            
+            /* Force cursor override for bottom area */
+            .resize-bottom {
+                cursor: ns-resize !important;
             }
             
             /* Color picker popup */
@@ -2757,6 +3187,8 @@ class AdminApp {
                 border: 2px solid #007bff;
                 transition: none;
                 cursor: grabbing;
+                max-width: 200px;
+                width: auto;
             }
             
             .time-slot.drag-highlight {
@@ -2800,15 +3232,6 @@ class AdminApp {
                 to { opacity: 0.7; transform: scale(1); }
             }
             
-            .resize-handle {
-                transition: all 0.2s ease;
-            }
-            
-            .resize-handle:hover {
-                background-color: rgba(0, 123, 255, 0.6);
-                height: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            }
             
             /* Smooth transitions for all appointment interactions */
             .appointment-block {
@@ -3333,7 +3756,7 @@ class AdminApp {
             <tr>
                 <td><strong>#${invoice.invoice_number || invoice.id}</strong></td>
                 <td>${invoice.customer_name || 'Onbekend'}</td>
-                <td class="text-currency">€${(parseFloat(invoice.total_amount) || 0).toFixed(2)}</td>
+                <td class="text-currency">${this.formatPrice(parseFloat(invoice.total_amount) || 0)}</td>
                 <td>
                     <span class="badge status-${invoice.status || 'draft'}">
                         ${this.getInvoiceStatusText(invoice.status || 'draft')}
@@ -3845,7 +4268,7 @@ class AdminApp {
                                                                         <label class="form-check-label w-100" for="service_${service.id}">
                                                                             <div class="d-flex justify-content-between">
                                                                                 <span class="fw-semibold">${service.name}</span>
-                                                                                <span class="text-success">€${parseFloat(service.base_price).toFixed(2)}</span>
+                                                                                <span class="text-success">${this.formatPrice(parseFloat(service.base_price))}</span>
                                                                             </div>
                                                                             <small class="text-muted d-block">${service.description || ''}</small>
                                                                             ${service.duration_minutes ? `<small class="text-info">~${Math.round(service.duration_minutes/60)}u</small>` : ''}
@@ -3868,20 +4291,20 @@ class AdminApp {
                                                 <p class="text-muted">Selecteer services om een samenvatting te zien...</p>
                                             </div>
                                             <hr>
-                                            ${this.systemSettings.vat_enabled ? `
+                                            ${(this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '') ? `
                                             <div class="d-flex justify-content-between">
                                                 <span>Subtotaal:</span>
-                                                <span id="quoteSubtotal">€0.00</span>
+                                                <span id="quoteSubtotal">${this.formatCurrency(0)}</span>
                                             </div>
                                             <div class="d-flex justify-content-between">
                                                 <span>BTW (${this.systemSettings.vat_percentage}%):</span>
-                                                <span id="quoteVAT">€0.00</span>
+                                                <span id="quoteVAT">${this.formatCurrency(0)}</span>
                                             </div>
                                             <hr class="my-2">
                                             ` : ''}
                                             <div class="d-flex justify-content-between align-items-center">
-                                                <span class="fw-bold">${this.systemSettings.vat_enabled ? 'Totaal inkl. BTW:' : 'Totaal:'}</span>
-                                                <span class="fw-bold fs-5 text-success" id="quoteTotal">€0.00</span>
+                                                <span class="fw-bold">Totaal:</span>
+                                                <span class="fw-bold fs-5 text-success" id="quoteTotal">${this.formatPrice(0)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -3952,20 +4375,21 @@ class AdminApp {
         let vatAmount = 0;
         let totalPrice = subtotal;
         
-        if (this.systemSettings.vat_enabled && subtotal > 0) {
+        const vatActive = this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '';
+        if (vatActive && subtotal > 0) {
             vatAmount = subtotal * (this.systemSettings.vat_percentage / 100);
             totalPrice = subtotal + vatAmount;
         }
 
         if (selectedServices.length === 0) {
             summaryEl.innerHTML = '<p class="text-muted">Selecteer services om een samenvatting te zien...</p>';
-            totalEl.textContent = '€0.00';
+            totalEl.textContent = this.formatCurrency(0);
             
             // Reset VAT elements if they exist
             const subtotalEl = document.getElementById('quoteSubtotal');
             const vatEl = document.getElementById('quoteVAT');
-            if (subtotalEl) subtotalEl.textContent = '€0.00';
-            if (vatEl) vatEl.textContent = '€0.00';
+            if (subtotalEl) subtotalEl.textContent = this.formatCurrency(0);
+            if (vatEl) vatEl.textContent = this.formatCurrency(0);
         } else {
             summaryEl.innerHTML = `
                 <div class="row">
@@ -3973,7 +4397,7 @@ class AdminApp {
                         <div class="col-md-6">
                             <div class="d-flex justify-content-between">
                                 <span>${service.name}</span>
-                                <span class="text-success">€${service.price.toFixed(2)}</span>
+                                <span class="text-success">${this.formatPrice(service.price, { showVATStatus: false })}</span>
                             </div>
                         </div>
                     `).join('')}
@@ -3981,12 +4405,12 @@ class AdminApp {
             `;
             
             // Update all price elements
-            totalEl.textContent = `€${totalPrice.toFixed(2)}`;
+            totalEl.textContent = this.formatPrice(totalPrice, { showVATStatus: false });
             
             const subtotalEl = document.getElementById('quoteSubtotal');
             const vatEl = document.getElementById('quoteVAT');
-            if (subtotalEl) subtotalEl.textContent = `€${subtotal.toFixed(2)}`;
-            if (vatEl) vatEl.textContent = `€${vatAmount.toFixed(2)}`;
+            if (subtotalEl) subtotalEl.textContent = this.formatCurrency(subtotal);
+            if (vatEl) vatEl.textContent = this.formatCurrency(vatAmount);
         }
     }
 
@@ -4070,7 +4494,7 @@ class AdminApp {
             
             const quote = await this.apiCall('POST', '/api/quotes', quoteData);
 
-            alert(`✅ Offerte ${quote.quote_number} succesvol aangemaakt voor €${totalAmount.toFixed(2)}!`);
+            alert(`✅ Offerte ${quote.quote_number} succesvol aangemaakt voor ${this.formatPrice(totalAmount)}!`);
 
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuoteModal'));
@@ -4095,6 +4519,279 @@ class AdminApp {
             if (createBtn) {
                 createBtn.disabled = false;
                 createBtn.innerHTML = '<i class="bi bi-check-lg"></i> Offerte Aanmaken';
+            }
+        }
+    }
+
+    async generateStandaloneQuote() {
+        try {
+            // Load available services
+            const servicesResult = await this.apiCall('GET', '/api/services');
+            const services = servicesResult.services || [];
+
+            // Group services by category
+            const servicesByCategory = services.reduce((groups, service) => {
+                const category = service.category || 'other';
+                if (!groups[category]) groups[category] = [];
+                groups[category].push(service);
+                return groups;
+            }, {});
+
+            const categoryLabels = {
+                'signature': '🌟 Signature Detailing',
+                'cleaning': '🧽 Reiniging & Onderhoud', 
+                'correction': '✨ Paint Correction',
+                'protection': '🛡️ Bescherming',
+                'maintenance': '🔧 Onderhoud',
+                'other': '📋 Overige Diensten'
+            };
+
+            // Create categories display in order
+            const categoryOrder = ['signature', 'cleaning', 'correction', 'protection', 'maintenance', 'other'];
+            let servicesHtml = '';
+
+            categoryOrder.forEach(category => {
+                if (servicesByCategory[category] && servicesByCategory[category].length > 0) {
+                    servicesHtml += `
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">${categoryLabels[category]}</h6>
+                                </div>
+                                <div class="card-body">
+                                    ${servicesByCategory[category].map(service => `
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input service-checkbox" type="checkbox" value="${service.id}" 
+                                                   data-name="${service.name}" data-price="${service.price}" data-duration="${service.duration_hours || 0}">
+                                            <label class="form-check-label w-100" for="service_${service.id}">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div>
+                                                        <strong>${service.name}</strong>
+                                                        ${service.description ? `<br><small class="text-muted">${service.description}</small>` : ''}
+                                                    </div>
+                                                    <span class="badge bg-primary">${this.formatPrice(service.price, {showVATStatus: false})}</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            const modalHtml = `
+                <div class="modal fade" id="generateQuoteModal" tabindex="-1">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-file-earmark-text text-warning"></i> 
+                                    Nieuwe Offerte Maken
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="generateQuoteForm">
+                                    
+                                    <!-- Customer Info (empty for new entry) -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <h6><i class="bi bi-person-circle"></i> Klant Gegevens</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label">Voornaam</label>
+                                                <input type="text" class="form-control" id="quoteFirstName" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Achternaam</label>
+                                                <input type="text" class="form-control" id="quoteLastName" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Email</label>
+                                                <input type="email" class="form-control" id="quoteEmail" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Telefoon</label>
+                                                <input type="tel" class="form-control" id="quotePhone">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6><i class="bi bi-geo-alt"></i> Adres Gegevens</h6>
+                                            <div class="mb-2">
+                                                <label class="form-label">Adres</label>
+                                                <input type="text" class="form-control" id="quoteAddress">
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Postcode</label>
+                                                    <input type="text" class="form-control" id="quotePostalCode">
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <label class="form-label">Plaats</label>
+                                                    <input type="text" class="form-control" id="quoteCity">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Vehicle Info -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <h6><i class="bi bi-car-front"></i> Voertuig Informatie</h6>
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Merk</label>
+                                                    <input type="text" class="form-control" id="quoteMake" required>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Model</label>
+                                                    <input type="text" class="form-control" id="quoteModel" required>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Jaar</label>
+                                                    <input type="number" class="form-control" id="quoteYear" min="1990" max="2030">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Kleur</label>
+                                                    <input type="text" class="form-control" id="quoteColor">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Kenteken</label>
+                                                    <input type="text" class="form-control" id="quoteLicensePlate">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Services Selection -->
+                                    <div class="mb-4">
+                                        <h6><i class="bi bi-list-check"></i> Diensten Selectie</h6>
+                                        <div class="row">
+                                            ${servicesHtml}
+                                        </div>
+                                    </div>
+
+                                    <!-- Additional Info -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Geldig tot</label>
+                                            <input type="date" class="form-control" id="quoteValidUntil" 
+                                                   value="${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Notities</label>
+                                            <textarea class="form-control" id="quoteNotes" rows="2" placeholder="Extra informatie of opmerkingen..."></textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quote Summary -->
+                                    <div class="border rounded p-3 bg-light">
+                                        <h6><i class="bi bi-calculator"></i> Offerte Samenvatting</h6>
+                                        <div id="quoteSummary">
+                                            <p class="text-muted">Selecteer diensten om de totale prijs te zien</p>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-success" id="createQuoteBtn" onclick="adminApp.createStandaloneQuote()">
+                                    <i class="bi bi-check-circle"></i> Offerte Aanmaken
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal
+            document.querySelectorAll('#generateQuoteModal').forEach(m => m.remove());
+            
+            // Add modal to DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('generateQuoteModal'));
+            modal.show();
+
+            // Setup event handlers
+            this.setupQuoteGenerationHandlers();
+
+        } catch (error) {
+            console.error('Error generating standalone quote:', error);
+            this.showToast('Fout bij laden van offerte generator', 'error');
+        }
+    }
+
+    async createStandaloneQuote() {
+        const createBtn = document.getElementById('createQuoteBtn');
+        if (createBtn) {
+            createBtn.disabled = true;
+            createBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Offerte wordt aangemaakt...';
+        }
+
+        try {
+            // Get form data
+            const formData = {
+                customer: {
+                    first_name: document.getElementById('quoteFirstName').value,
+                    last_name: document.getElementById('quoteLastName').value,
+                    email: document.getElementById('quoteEmail').value,
+                    phone: document.getElementById('quotePhone').value || null,
+                    address: document.getElementById('quoteAddress').value || null,
+                    postal_code: document.getElementById('quotePostalCode').value || null,
+                    city: document.getElementById('quoteCity').value || null
+                },
+                vehicle: {
+                    make: document.getElementById('quoteMake').value,
+                    model: document.getElementById('quoteModel').value,
+                    year: document.getElementById('quoteYear').value || null,
+                    color: document.getElementById('quoteColor').value || null,
+                    license_plate: document.getElementById('quoteLicensePlate').value || null
+                },
+                services: [],
+                valid_until: document.getElementById('quoteValidUntil').value || null,
+                notes: document.getElementById('quoteNotes').value || null
+            };
+
+            // Get selected services
+            document.querySelectorAll('.service-checkbox:checked').forEach(checkbox => {
+                formData.services.push({
+                    service_id: checkbox.value,
+                    quantity: 1,
+                    unit_price: parseFloat(checkbox.dataset.price)
+                });
+            });
+
+            if (formData.services.length === 0) {
+                alert('Selecteer minimaal één dienst voor de offerte.');
+                return;
+            }
+
+            console.log('Creating quote with data:', formData);
+
+            // Create the quote
+            const quote = await this.apiCall('POST', '/api/quotes', formData);
+            console.log('Quote created:', quote);
+
+            this.showToast('✅ Offerte succesvol aangemaakt!', 'success');
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuoteModal'));
+            if (modal) modal.hide();
+
+            // Reload quotes to show the new quote
+            await this.loadQuotes();
+
+        } catch (error) {
+            console.error('Error creating standalone quote:', error);
+            alert(`❌ Fout bij aanmaken offerte: ${error.message}`);
+        } finally {
+            // Reset button state
+            if (createBtn) {
+                createBtn.disabled = false;
+                createBtn.innerHTML = '<i class="bi bi-check-circle"></i> Offerte Aanmaken';
             }
         }
     }
@@ -4148,7 +4845,7 @@ class AdminApp {
                         <div class="card bg-danger text-white">
                             <div class="card-body">
                                 <h5 class="card-title">Deze Maand</h5>
-                                <h2>€${summary.total_amount ? parseFloat(summary.total_amount).toFixed(2) : '0.00'}</h2>
+                                <h2>${this.formatPrice(summary.total_amount ? parseFloat(summary.total_amount) : 0)}</h2>
                                 <small>Totale uitgaven</small>
                             </div>
                         </div>
@@ -4218,7 +4915,7 @@ class AdminApp {
                                             <td>${expense.supplier_name || 'Geen leverancier'}</td>
                                             <td>${expense.description}</td>
                                             <td><span class="badge bg-secondary">${this.getCategoryText(expense.category)}</span></td>
-                                            <td class="text-currency">€${parseFloat(expense.amount).toFixed(2)}</td>
+                                            <td class="text-currency">${this.formatPrice(parseFloat(expense.amount))}</td>
                                             <td>${this.formatDate(expense.expense_date)}</td>
                                             <td>
                                                 <span class="badge bg-${expense.status === 'approved' ? 'success' : expense.status === 'pending' ? 'warning' : 'danger'}">
@@ -4304,8 +5001,203 @@ class AdminApp {
         console.log('✅ Expenses event listeners setup');
     }
     
-    showAddExpenseModal() {
-        this.showToast('Nieuwe uitgave functionaliteit komt binnenkort!', 'info');
+    async showAddExpenseModal() {
+        try {
+            // Load suppliers for the dropdown
+            const suppliersResult = await this.apiCall('GET', '/api/suppliers');
+            const suppliers = suppliersResult.suppliers || [];
+
+            const modalHtml = `
+                <div class="modal fade" id="addExpenseModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-receipt text-danger"></i> Nieuwe Inkoopfactuur
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="addExpenseForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Leverancier</label>
+                                                <select class="form-select" name="supplier_id">
+                                                    <option value="">Selecteer leverancier</option>
+                                                    ${suppliers.map(supplier => 
+                                                        `<option value="${supplier.id}">${supplier.name}</option>`
+                                                    ).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Factuurnummer</label>
+                                                <input type="text" class="form-control" name="invoice_number" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Factuurdatum</label>
+                                                <input type="date" class="form-control" name="expense_date" 
+                                                       value="${new Date().toISOString().split('T')[0]}" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Vervaldatum</label>
+                                                <input type="date" class="form-control" name="due_date">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Beschrijving</label>
+                                        <input type="text" class="form-control" name="description" required>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Bedrag excl. BTW (€)</label>
+                                                <input type="number" class="form-control" name="amount_excl_vat" 
+                                                       step="0.01" min="0" required onchange="adminApp.calculateExpenseTotals()">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">BTW % <small class="text-muted">(altijd mogelijk)</small></label>
+                                                <input type="number" class="form-control" name="vat_percentage" 
+                                                       value="21" step="0.01" min="0" max="100" onchange="adminApp.calculateExpenseTotals()">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Totaal incl. BTW (€)</label>
+                                                <input type="number" class="form-control" name="total_amount" 
+                                                       step="0.01" min="0" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Categorie</label>
+                                                <select class="form-select" name="category" required>
+                                                    <option value="">Selecteer categorie</option>
+                                                    <option value="materials">Materialen</option>
+                                                    <option value="equipment">Apparatuur</option>
+                                                    <option value="fuel">Brandstof</option>
+                                                    <option value="office">Kantoorbenodigdheden</option>
+                                                    <option value="professional_services">Professionele diensten</option>
+                                                    <option value="utilities">Nutsvoorzieningen</option>
+                                                    <option value="insurance">Verzekeringen</option>
+                                                    <option value="other">Overig</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Status</label>
+                                                <select class="form-select" name="status">
+                                                    <option value="pending">Openstaand</option>
+                                                    <option value="paid">Betaald</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Notities</label>
+                                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                                    </div>
+
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i>
+                                        <strong>BTW bij inkoopfacturen:</strong> BTW invoer is altijd mogelijk bij inkoopfacturen, 
+                                        ongeacht of je bedrijf een BTW-nummer heeft. Dit is nodig voor de BTW-aangifte.
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                                <button type="button" class="btn btn-primary" onclick="adminApp.saveNewExpense()">
+                                    <i class="bi bi-check"></i> Inkoopfactuur Toevoegen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('addExpenseModal'));
+            
+            document.getElementById('addExpenseModal').addEventListener('hidden.bs.modal', function () {
+                this.remove();
+            });
+            
+            modal.show();
+            
+            // Calculate initial totals
+            this.calculateExpenseTotals();
+            
+        } catch (error) {
+            console.error('Error showing add expense modal:', error);
+            this.showToast('Fout bij openen nieuwe inkoopfactuur', 'error');
+        }
+    }
+
+    calculateExpenseTotals() {
+        const amountExclVat = parseFloat(document.querySelector('[name="amount_excl_vat"]')?.value || 0);
+        const vatPercentage = parseFloat(document.querySelector('[name="vat_percentage"]')?.value || 0);
+        
+        const vatAmount = amountExclVat * (vatPercentage / 100);
+        const totalAmount = amountExclVat + vatAmount;
+        
+        const totalField = document.querySelector('[name="total_amount"]');
+        if (totalField) {
+            totalField.value = totalAmount.toFixed(2);
+        }
+    }
+
+    async saveNewExpense() {
+        try {
+            const form = document.getElementById('addExpenseForm');
+            const formData = new FormData(form);
+            
+            const expenseData = {
+                supplier_id: formData.get('supplier_id') || null,
+                invoice_number: formData.get('invoice_number'),
+                expense_date: formData.get('expense_date'),
+                due_date: formData.get('due_date') || null,
+                description: formData.get('description'),
+                amount: parseFloat(formData.get('total_amount')), // Total amount including VAT
+                amount_excl_vat: parseFloat(formData.get('amount_excl_vat')),
+                vat_percentage: parseFloat(formData.get('vat_percentage') || 0),
+                vat_amount: parseFloat(formData.get('amount_excl_vat')) * (parseFloat(formData.get('vat_percentage') || 0) / 100),
+                category: formData.get('category'),
+                status: formData.get('status') || 'pending',
+                notes: formData.get('notes') || ''
+            };
+
+            const result = await this.apiCall('POST', '/api/expenses', expenseData);
+            this.showToast('✅ Inkoopfactuur succesvol toegevoegd!', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addExpenseModal'));
+            modal.hide();
+            
+            await this.loadExpenses();
+            
+        } catch (error) {
+            console.error('Error saving expense:', error);
+            this.showToast('❌ Fout bij opslaan inkoopfactuur: ' + error.message, 'error');
+        }
     }
     
     viewExpense(id) {
@@ -4410,7 +5302,7 @@ class AdminApp {
                                         <strong>Stad:</strong> ${supplier.city || 'N/A'}
                                     </p>
                                     <p class="text-muted">
-                                        <small>Uitgaven: <strong>€${parseFloat(supplier.total_spent || 0).toFixed(2)}</strong></small>
+                                        <small>Uitgaven: <strong>${this.formatPrice(parseFloat(supplier.total_spent || 0))}</strong></small>
                                     </p>
                                     <div class="btn-group">
                                         <button class="btn btn-outline-primary btn-sm" onclick="if(window.adminApp) window.adminApp.viewSupplier('${supplier.id}');">
@@ -4507,7 +5399,7 @@ class AdminApp {
                         <div class="card bg-success text-white">
                             <div class="card-body">
                                 <h5>Inkomsten</h5>
-                                <h2>€${parseFloat(overview.total_revenue || 0).toFixed(2)}</h2>
+                                <h2>${this.formatPrice(parseFloat(overview.total_revenue || 0))}</h2>
                                 <small>Deze maand</small>
                             </div>
                         </div>
@@ -4516,7 +5408,7 @@ class AdminApp {
                         <div class="card bg-danger text-white">
                             <div class="card-body">
                                 <h5>Uitgaven</h5>
-                                <h2>€${parseFloat(overview.total_expenses || 0).toFixed(2)}</h2>
+                                <h2>${this.formatPrice(parseFloat(overview.total_expenses || 0))}</h2>
                                 <small>Deze maand</small>
                             </div>
                         </div>
@@ -4525,7 +5417,7 @@ class AdminApp {
                         <div class="card bg-primary text-white">
                             <div class="card-body">
                                 <h5>Netto Winst</h5>
-                                <h2>€${parseFloat(overview.profit || 0).toFixed(2)}</h2>
+                                <h2>${this.formatPrice(parseFloat(overview.profit || 0))}</h2>
                                 <small>Marge: ${parseFloat(overview.profit_margin || 0).toFixed(1)}%</small>
                             </div>
                         </div>
@@ -4534,7 +5426,7 @@ class AdminApp {
                         <div class="card bg-warning text-dark">
                             <div class="card-body">
                                 <h5>BTW Saldo</h5>
-                                <h2>€${parseFloat(overview.vat_balance || 0).toFixed(2)}</h2>
+                                <h2>${this.formatPrice(parseFloat(overview.vat_balance || 0))}</h2>
                                 <small>Te betalen/ontvangen</small>
                             </div>
                         </div>
@@ -5433,6 +6325,15 @@ class AdminApp {
         if (!response.ok) {
             const error = await response.json();
             console.error('API Error Response:', error);
+            
+            // Log validation details specifically
+            if (error.details && Array.isArray(error.details)) {
+                console.error('Validation details:', error.details);
+                error.details.forEach((detail, index) => {
+                    console.error(`  ${index + 1}. Field: ${detail.field}, Message: ${detail.message}, Value: ${detail.value}`);
+                });
+            }
+            
             throw new Error(error.error || error.message || 'API call failed');
         }
 
@@ -5444,6 +6345,66 @@ class AdminApp {
             style: 'currency',
             currency: 'EUR'
         }).format(amount);
+    }
+
+    // Format price based on VAT settings
+    formatPrice(basePrice, options = {}) {
+        const { showVATStatus = false, forceExclusive = false } = options;
+        
+        // BTW is alleen actief als er een BTW-nummer is ingevuld
+        const vatActive = this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '';
+        
+        if (!vatActive || forceExclusive) {
+            return this.formatCurrency(basePrice);
+        }
+        
+        const vatMultiplier = 1 + (this.systemSettings.vat_percentage / 100);
+        const priceIncVat = basePrice * vatMultiplier;
+        const formatted = this.formatCurrency(priceIncVat);
+        
+        return showVATStatus ? `${formatted} incl. BTW` : formatted;
+    }
+
+    // Get price amount (with or without VAT)
+    getPriceAmount(basePrice, includeVat = null) {
+        // BTW is alleen actief als er een BTW-nummer is ingevuld
+        const vatActive = this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '';
+        
+        if (includeVat === null) {
+            includeVat = vatActive;
+        }
+        
+        if (!includeVat || !vatActive) {
+            return basePrice;
+        }
+        
+        const vatMultiplier = 1 + (this.systemSettings.vat_percentage / 100);
+        return basePrice * vatMultiplier;
+    }
+
+    // Get VAT status text
+    getVATStatusText() {
+        const vatActive = this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '';
+        return vatActive ? 'incl. BTW' : '';
+    }
+
+    // Get invoice terminology based on VAT status
+    getInvoiceTerminology(type = 'invoice') {
+        const hasVat = this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '';
+        
+        const terms = {
+            invoice: hasVat ? 'factuur' : 'kwitantie',
+            Invoice: hasVat ? 'Factuur' : 'Kwitantie', 
+            toInvoice: hasVat ? 'Naar Factuur' : 'Naar Kwitantie',
+            invoiceNumber: hasVat ? 'factuurnummer' : 'kwitantienummer',
+            InvoiceNumber: hasVat ? 'Factuurnummer' : 'Kwitantienummer',
+            invoices: hasVat ? 'facturen' : 'kwitanties',
+            Invoices: hasVat ? 'Facturen' : 'Kwitanties',
+            createInvoice: hasVat ? 'Factuur Aanmaken' : 'Kwitantie Aanmaken',
+            invoiceCreated: hasVat ? 'Factuur aangemaakt' : 'Kwitantie aangemaakt'
+        };
+        
+        return terms[type] || terms.invoice;
     }
 
     formatTimeAgo(dateString) {
@@ -5467,6 +6428,414 @@ class AdminApp {
         // Handle both HH:MM and HH:MM:SS formats
         const parts = timeString.split(':');
         return `${parts[0]}:${parts[1]}`;
+    }
+
+    // Load Services section
+    async loadServices() {
+        console.log('🔧 Loading services...');
+        try {
+            const services = await this.apiCall('GET', '/api/services');
+            console.log('📋 Loaded services:', services.services?.length || 0);
+            
+            const contentEl = document.getElementById('main-content');
+            contentEl.innerHTML = `
+                <div class="container-fluid">
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <h2><i class="bi bi-list-check text-primary"></i> Prijslijst & Services</h2>
+                            <p class="text-muted">Beheer je diensten en prijzen voor de offerte generator</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-primary" onclick="adminApp.showAddServiceModal()">
+                                <i class="bi bi-plus-circle"></i> Service Toevoegen
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-6">
+                                            <h5 class="card-title mb-0">Services Overzicht</h5>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="row g-2">
+                                                <div class="col-auto">
+                                                    <select class="form-select form-select-sm" id="categoryFilter" onchange="adminApp.filterServices()">
+                                                        <option value="">Alle categorieën</option>
+                                                        <option value="signature">🌟 Signature Detailing</option>
+                                                        <option value="cleaning">🧽 Reiniging & Onderhoud</option>
+                                                        <option value="correction">✨ Paint Correction</option>
+                                                        <option value="protection">🛡️ Bescherming</option>
+                                                        <option value="restoration">🔧 Restauratie</option>
+                                                        <option value="addon">➕ Extra Services</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <input type="text" class="form-control form-control-sm" id="searchServices" 
+                                                           placeholder="Zoek service..." onkeyup="adminApp.filterServices()">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Service</th>
+                                                    <th>Categorie</th>
+                                                    <th>Prijs</th>
+                                                    <th>Duur</th>
+                                                    <th>Status</th>
+                                                    <th class="text-center">Acties</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="services-table-body">
+                                                ${this.renderServicesTable(services.services || [])}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Error loading services:', error);
+            this.showToast('Fout bij laden services', 'error');
+        }
+    }
+
+    renderServicesTable(services) {
+        if (!services || services.length === 0) {
+            return '<tr><td colspan="6" class="text-center py-4 text-muted">Geen services gevonden</td></tr>';
+        }
+
+        const categoryLabels = {
+            'signature': '🌟 Signature Detailing',
+            'cleaning': '🧽 Reiniging & Onderhoud', 
+            'correction': '✨ Paint Correction',
+            'protection': '🛡️ Bescherming',
+            'restoration': '🔧 Restauratie',
+            'addon': '➕ Extra Services',
+            'other': '📋 Overige'
+        };
+
+        return services.map(service => `
+            <tr data-service-id="${service.id}" data-category="${service.category}" data-name="${service.name.toLowerCase()}">
+                <td>
+                    <div>
+                        <strong>${service.name}</strong>
+                        ${service.description ? `<br><small class="text-muted">${service.description}</small>` : ''}
+                    </div>
+                </td>
+                <td><span class="badge bg-secondary">${categoryLabels[service.category] || service.category}</span></td>
+                <td><span class="text-success fw-bold">${this.formatPrice(parseFloat(service.base_price))}</span></td>
+                <td>${service.duration_minutes ? `${Math.round(service.duration_minutes/60)}u ${service.duration_minutes%60}min` : '-'}</td>
+                <td>
+                    <span class="badge ${service.active ? 'bg-success' : 'bg-secondary'}">
+                        ${service.active ? 'Actief' : 'Inactief'}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-warning" onclick="adminApp.editService(${service.id})" title="Bewerken">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="adminApp.deleteService(${service.id})" title="Verwijderen">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="adminApp.toggleServiceStatus(${service.id}, ${!service.active})" 
+                                title="${service.active ? 'Deactiveren' : 'Activeren'}">
+                            <i class="bi bi-${service.active ? 'eye-slash' : 'eye'}"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    filterServices() {
+        const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+        const searchFilter = document.getElementById('searchServices').value.toLowerCase();
+        const rows = document.querySelectorAll('#services-table-body tr[data-service-id]');
+
+        rows.forEach(row => {
+            const category = row.getAttribute('data-category');
+            const name = row.getAttribute('data-name');
+            
+            const matchesCategory = !categoryFilter || category === categoryFilter;
+            const matchesSearch = !searchFilter || name.includes(searchFilter);
+            
+            row.style.display = (matchesCategory && matchesSearch) ? '' : 'none';
+        });
+    }
+
+    async showAddServiceModal() {
+        const modalHtml = `
+            <div class="modal fade" id="addServiceModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-plus-circle text-primary"></i> Nieuwe Service Toevoegen
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addServiceForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Service Naam</label>
+                                            <input type="text" class="form-control" name="name" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Categorie</label>
+                                            <select class="form-select" name="category" required>
+                                                <option value="">Selecteer categorie</option>
+                                                <option value="signature">🌟 Signature Detailing</option>
+                                                <option value="cleaning">🧽 Reiniging & Onderhoud</option>
+                                                <option value="correction">✨ Paint Correction</option>
+                                                <option value="protection">🛡️ Bescherming</option>
+                                                <option value="restoration">🔧 Restauratie</option>
+                                                <option value="addon">➕ Extra Services</option>
+                                                <option value="other">📋 Overige</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Beschrijving</label>
+                                    <textarea class="form-control" name="description" rows="3"></textarea>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Basisprijs (€)</label>
+                                            <input type="number" class="form-control" name="base_price" step="0.01" min="0" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Duur (minuten)</label>
+                                            <input type="number" class="form-control" name="duration_minutes" min="0">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="active" checked>
+                                        <label class="form-check-label">Service actief</label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                            <button type="button" class="btn btn-primary" onclick="adminApp.saveNewService()">
+                                <i class="bi bi-check"></i> Service Toevoegen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('addServiceModal'));
+        
+        document.getElementById('addServiceModal').addEventListener('hidden.bs.modal', function () {
+            this.remove();
+        });
+        
+        modal.show();
+    }
+
+    async saveNewService() {
+        try {
+            const form = document.getElementById('addServiceForm');
+            const formData = new FormData(form);
+            
+            const serviceData = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                category: formData.get('category'),
+                base_price: parseFloat(formData.get('base_price')),
+                duration_minutes: formData.get('duration_minutes') ? parseInt(formData.get('duration_minutes')) : null,
+                active: formData.has('active')
+            };
+
+            const result = await this.apiCall('POST', '/api/services', serviceData);
+            this.showToast('✅ Service succesvol toegevoegd!', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addServiceModal'));
+            modal.hide();
+            
+            await this.loadServices();
+            
+        } catch (error) {
+            console.error('Error saving service:', error);
+            this.showToast('❌ Fout bij opslaan service: ' + error.message, 'error');
+        }
+    }
+
+    async editService(id) {
+        try {
+            const service = await this.apiCall('GET', `/api/services/${id}`);
+            
+            const modalHtml = `
+                <div class="modal fade" id="editServiceModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-pencil text-warning"></i> Service Bewerken
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="editServiceForm">
+                                    <input type="hidden" name="id" value="${service.id}">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Service Naam</label>
+                                                <input type="text" class="form-control" name="name" value="${service.name}" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Categorie</label>
+                                                <select class="form-select" name="category" required>
+                                                    <option value="">Selecteer categorie</option>
+                                                    <option value="signature" ${service.category === 'signature' ? 'selected' : ''}>🌟 Signature Detailing</option>
+                                                    <option value="cleaning" ${service.category === 'cleaning' ? 'selected' : ''}>🧽 Reiniging & Onderhoud</option>
+                                                    <option value="correction" ${service.category === 'correction' ? 'selected' : ''}>✨ Paint Correction</option>
+                                                    <option value="protection" ${service.category === 'protection' ? 'selected' : ''}>🛡️ Bescherming</option>
+                                                    <option value="restoration" ${service.category === 'restoration' ? 'selected' : ''}>🔧 Restauratie</option>
+                                                    <option value="addon" ${service.category === 'addon' ? 'selected' : ''}>➕ Extra Services</option>
+                                                    <option value="other" ${service.category === 'other' ? 'selected' : ''}>📋 Overige</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Beschrijving</label>
+                                        <textarea class="form-control" name="description" rows="3">${service.description || ''}</textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Basisprijs (€)</label>
+                                                <input type="number" class="form-control" name="base_price" step="0.01" min="0" value="${service.base_price}" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Duur (minuten)</label>
+                                                <input type="number" class="form-control" name="duration_minutes" min="0" value="${service.duration_minutes || ''}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="active" ${service.active ? 'checked' : ''}>
+                                            <label class="form-check-label">Service actief</label>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
+                                <button type="button" class="btn btn-warning" onclick="adminApp.updateService()">
+                                    <i class="bi bi-check"></i> Service Bijwerken
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('editServiceModal'));
+            
+            document.getElementById('editServiceModal').addEventListener('hidden.bs.modal', function () {
+                this.remove();
+            });
+            
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error loading service for edit:', error);
+            this.showToast('❌ Fout bij laden service', 'error');
+        }
+    }
+
+    async updateService() {
+        try {
+            const form = document.getElementById('editServiceForm');
+            const formData = new FormData(form);
+            
+            const serviceData = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                category: formData.get('category'),
+                base_price: parseFloat(formData.get('base_price')),
+                duration_minutes: formData.get('duration_minutes') ? parseInt(formData.get('duration_minutes')) : null,
+                active: formData.has('active')
+            };
+
+            const id = formData.get('id');
+            const result = await this.apiCall('PUT', `/api/services/${id}`, serviceData);
+            this.showToast('✅ Service succesvol bijgewerkt!', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editServiceModal'));
+            modal.hide();
+            
+            await this.loadServices();
+            
+        } catch (error) {
+            console.error('Error updating service:', error);
+            this.showToast('❌ Fout bij bijwerken service: ' + error.message, 'error');
+        }
+    }
+
+    async deleteService(id) {
+        try {
+            const service = await this.apiCall('GET', `/api/services/${id}`);
+            const confirmMessage = `Weet je zeker dat je de service "${service.name}" wilt verwijderen?\n\n⚠️ Deze actie kan niet ongedaan worden gemaakt!`;
+            
+            if (confirm(confirmMessage)) {
+                await this.apiCall('DELETE', `/api/services/${id}`);
+                this.showToast('✅ Service succesvol verwijderd', 'success');
+                await this.loadServices();
+            }
+            
+        } catch (error) {
+            console.error('Error deleting service:', error);
+            this.showToast('❌ Fout bij verwijderen service: ' + error.message, 'error');
+        }
+    }
+
+    async toggleServiceStatus(id, newStatus) {
+        try {
+            await this.apiCall('PUT', `/api/services/${id}`, { active: newStatus });
+            this.showToast(`✅ Service ${newStatus ? 'geactiveerd' : 'gedeactiveerd'}`, 'success');
+            await this.loadServices();
+            
+        } catch (error) {
+            console.error('Error toggling service status:', error);
+            this.showToast('❌ Fout bij wijzigen status', 'error');
+        }
     }
 
     getActivityColor(type) {
@@ -5532,6 +6901,11 @@ class AdminApp {
         
         const toast = new bootstrap.Toast(toastEl);
         toast.show();
+    }
+
+    // Alias for showToast (used by drag-and-drop functions)
+    showNotification(message, type = 'info') {
+        this.showToast(message, type);
     }
 
     // PDF Loading Animation Functions
@@ -5675,7 +7049,7 @@ class AdminApp {
             
         } catch (error) {
             console.error('Error showing add invoice modal:', error);
-            this.showToast('Fout bij openen nieuwe factuur', 'danger');
+            this.showToast(`Fout bij openen nieuwe ${this.getInvoiceTerminology('invoice')}`, 'danger');
         }
     }
     
@@ -5688,7 +7062,7 @@ class AdminApp {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">
-                            <i class="bi bi-receipt text-info"></i> Nieuwe Factuur Aanmaken
+                            <i class="bi bi-receipt text-info"></i> Nieuwe ${this.getInvoiceTerminology('createInvoice')}
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
@@ -5711,7 +7085,7 @@ class AdminApp {
                                     <input type="date" class="form-control" name="due_date" 
                                            value="${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}">
                                 </div>
-                                ${this.systemSettings.vat_enabled ? `
+                                ${(this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '') ? `
                                 <div class="col-md-3">
                                     <label class="form-label">BTW %</label>
                                     <input type="number" class="form-control" name="tax_percentage" 
@@ -5776,18 +7150,18 @@ class AdminApp {
                                         <h6>Factuur Totaal</h6>
                                         <div class="d-flex justify-content-between">
                                             <span>Subtotaal:</span>
-                                            <span id="invoice-subtotal">€ 0,00</span>
+                                            <span id="invoice-subtotal">${this.formatCurrency(0)}</span>
                                         </div>
-                                        ${this.systemSettings.vat_enabled ? `
+                                        ${(this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '') ? `
                                         <div class="d-flex justify-content-between">
                                             <span>BTW:</span>
-                                            <span id="invoice-tax">€ 0,00</span>
+                                            <span id="invoice-tax">${this.formatCurrency(0)}</span>
                                         </div>
                                         <hr>
                                         ` : ''}
                                         <div class="d-flex justify-content-between fw-bold">
                                             <span>Totaal:</span>
-                                            <span id="invoice-total">€ 0,00</span>
+                                            <span id="invoice-total">${this.formatPrice(0)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -5797,7 +7171,7 @@ class AdminApp {
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
                         <button type="button" class="btn btn-primary" id="save-invoice-btn">
-                            <i class="bi bi-check"></i> Factuur Aanmaken
+                            <i class="bi bi-check"></i> ${this.getInvoiceTerminology('createInvoice')}
                         </button>
                     </div>
                 </div>
@@ -5890,7 +7264,7 @@ class AdminApp {
             const total = quantity * price;
             
             const totalInput = item.querySelector('.item-total');
-            totalInput.value = `€ ${total.toFixed(2)}`;
+            totalInput.value = this.formatCurrency(total);
             
             this.calculateInvoiceTotal();
         };
@@ -5931,21 +7305,22 @@ class AdminApp {
         let taxAmount = 0;
         let total = subtotal;
         
-        if (this.systemSettings.vat_enabled) {
+        const vatActive = this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '';
+        if (vatActive) {
             const taxInput = document.querySelector('[name="tax_percentage"]');
             const taxPercentage = taxInput ? parseFloat(taxInput.value) || 0 : this.systemSettings.vat_percentage;
             taxAmount = subtotal * (taxPercentage / 100);
             total = subtotal + taxAmount;
         }
         
-        document.getElementById('invoice-subtotal').textContent = `€ ${subtotal.toFixed(2).replace('.', ',')}`;
+        document.getElementById('invoice-subtotal').textContent = this.formatCurrency(subtotal);
         
         const taxElement = document.getElementById('invoice-tax');
         if (taxElement) {
-            taxElement.textContent = `€ ${taxAmount.toFixed(2).replace('.', ',')}`;
+            taxElement.textContent = this.formatCurrency(taxAmount);
         }
         
-        document.getElementById('invoice-total').textContent = `€ ${total.toFixed(2).replace('.', ',')}`;
+        document.getElementById('invoice-total').textContent = this.formatPrice(total);
     }
     
     async saveNewInvoice() {
@@ -5984,7 +7359,7 @@ class AdminApp {
             customer_id: formData.get('customer_id'),
             description: formData.get('description') || 'Factuur',
             due_date: formData.get('due_date') || null,
-            tax_percentage: this.systemSettings.vat_enabled ? 
+            tax_percentage: (this.systemSettings.company_vat_number && this.systemSettings.company_vat_number.trim() !== '') ? 
                 (parseFloat(formData.get('tax_percentage')) || this.systemSettings.vat_percentage) : 0,
             notes: formData.get('notes') || '',
             items: items
@@ -5996,7 +7371,7 @@ class AdminApp {
         }
         
         // Show loading
-        const loadingToast = this.showPDFLoadingToast('Factuur aanmaken...');
+        const loadingToast = this.showPDFLoadingToast(`${this.getInvoiceTerminology('Invoice')} aanmaken...`);
         
         try {
             const response = await fetch(this.baseURL + '/api/invoices', {
@@ -6015,7 +7390,7 @@ class AdminApp {
             const invoice = await response.json();
             
             this.hidePDFLoadingToast(loadingToast);
-            this.showToast(`✅ Factuur ${invoice.invoice_number} succesvol aangemaakt!`, 'success');
+            this.showToast(`✅ ${this.getInvoiceTerminology('Invoice')} ${invoice.invoice_number} succesvol aangemaakt!`, 'success');
             
             // Close modal and refresh
             const modal = bootstrap.Modal.getInstance(document.getElementById('invoiceModal'));
@@ -6027,7 +7402,7 @@ class AdminApp {
         } catch (error) {
             console.error('Error saving invoice:', error);
             this.hidePDFLoadingToast(loadingToast);
-            this.showToast('Fout bij aanmaken factuur', 'danger');
+            this.showToast(`Fout bij aanmaken ${this.getInvoiceTerminology('invoice')}`, 'danger');
         }
     }
     
@@ -6045,7 +7420,7 @@ class AdminApp {
             this.showInvoiceModal(invoice);
         } catch (error) {
             console.error('Error loading invoice:', error);
-            this.showToast('Fout bij laden factuur', 'error');
+            this.showToast(`Fout bij laden ${this.getInvoiceTerminology('invoice')}`, 'error');
         }
     }
     
@@ -6112,8 +7487,8 @@ class AdminApp {
                                                         <td><strong>${item.service_name || '-'}</strong></td>
                                                         <td>${item.description || '-'}</td>
                                                         <td class="text-end">${item.quantity || 0}</td>
-                                                        <td class="text-end">€${(parseFloat(item.unit_price) || 0).toFixed(2)}</td>
-                                                        <td class="text-end">€${(parseFloat(item.total_price) || 0).toFixed(2)}</td>
+                                                        <td class="text-end">${this.formatPrice(parseFloat(item.unit_price) || 0, { showVATStatus: false })}</td>
+                                                        <td class="text-end">${this.formatPrice(parseFloat(item.total_price) || 0, { showVATStatus: false })}</td>
                                                     </tr>
                                                 `).join('') : `
                                                     <tr>
@@ -6132,21 +7507,21 @@ class AdminApp {
                                     <table class="table table-sm">
                                         <tr>
                                             <td>Subtotaal:</td>
-                                            <td class="text-end">€${(parseFloat(invoice.subtotal) || 0).toFixed(2)}</td>
+                                            <td class="text-end">${this.formatCurrency(parseFloat(invoice.subtotal) || 0)}</td>
                                         </tr>
                                         ${parseFloat(invoice.discount_percentage) > 0 ? `
                                         <tr>
                                             <td>Korting (${invoice.discount_percentage}%):</td>
-                                            <td class="text-end text-success">-€${(parseFloat(invoice.discount_amount) || 0).toFixed(2)}</td>
+                                            <td class="text-end text-success">-${this.formatCurrency(parseFloat(invoice.discount_amount) || 0)}</td>
                                         </tr>
                                         ` : ''}
                                         <tr>
                                             <td>BTW (${invoice.tax_percentage}%):</td>
-                                            <td class="text-end">€${(parseFloat(invoice.tax_amount) || 0).toFixed(2)}</td>
+                                            <td class="text-end">${this.formatCurrency(parseFloat(invoice.tax_amount) || 0)}</td>
                                         </tr>
                                         <tr class="table-active">
                                             <td><strong>Totaal:</strong></td>
-                                            <td class="text-end"><strong>€${(parseFloat(invoice.total_amount) || 0).toFixed(2)}</strong></td>
+                                            <td class="text-end"><strong>${this.formatPrice(parseFloat(invoice.total_amount) || 0, { showVATStatus: false })}</strong></td>
                                         </tr>
                                     </table>
                                 </div>
@@ -6264,7 +7639,7 @@ class AdminApp {
         } catch (error) {
             console.error('Error viewing invoice PDF:', error);
             this.hidePDFLoadingToast(loadingToast);
-            this.showToast('❌ Fout bij openen factuur PDF', 'danger');
+            this.showToast(`❌ Fout bij openen ${this.getInvoiceTerminology('invoice')} PDF`, 'danger');
         }
     }
     
@@ -6279,16 +7654,16 @@ class AdminApp {
         // Get invoice details for confirmation
         try {
             const invoice = await this.apiCall('GET', `/api/invoices/${id}`);
-            const confirmMessage = `Weet je zeker dat je de volgende factuur wilt verwijderen?\n\nFactuur: ${invoice.invoice_number}\nKlant: ${invoice.customer_name}\nBedrag: €${parseFloat(invoice.total_amount).toFixed(2)}\nStatus: ${this.getInvoiceStatusText(invoice.status)}\n\n⚠️ Deze actie kan niet ongedaan worden gemaakt!`;
+            const confirmMessage = `Weet je zeker dat je de volgende ${this.getInvoiceTerminology('invoice')} wilt verwijderen?\n\n${this.getInvoiceTerminology('Invoice')}: ${invoice.invoice_number}\nKlant: ${invoice.customer_name}\nBedrag: ${this.formatPrice(parseFloat(invoice.total_amount), { showVATStatus: false })}\nStatus: ${this.getInvoiceStatusText(invoice.status)}\n\n⚠️ Deze actie kan niet ongedaan worden gemaakt!`;
             
             if (confirm(confirmMessage)) {
                 const result = await this.apiCall('DELETE', `/api/invoices/${id}`);
-                this.showToast(`Factuur ${invoice.invoice_number} succesvol verwijderd`, 'success');
+                this.showToast(`${this.getInvoiceTerminology('Invoice')} ${invoice.invoice_number} succesvol verwijderd`, 'success');
                 this.loadInvoices(); // Refresh the list
             }
         } catch (error) {
             console.error('Error deleting invoice:', error);
-            this.showToast('Fout bij verwijderen factuur', 'error');
+            this.showToast(`Fout bij verwijderen ${this.getInvoiceTerminology('invoice')}`, 'error');
         }
     }
 
