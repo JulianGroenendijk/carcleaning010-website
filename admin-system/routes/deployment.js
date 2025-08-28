@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { query } = require('../database/connection');
 const bcrypt = require('bcrypt');
+const { runSchemaMigration, runDataMigration } = require('../run_migration');
 
 // Generate dynamic version based on git commits
 function getDynamicVersion() {
@@ -525,6 +526,95 @@ router.get('/test-invoice/:id', async (req, res) => {
             error: error.message,
             stack: error.stack
         });
+    }
+});
+
+// Database migration endpoints
+router.post('/migrate', async (req, res) => {
+    try {
+        console.log('🔄 Database migration requested');
+        const { action = 'both' } = req.body;
+        
+        res.json({
+            success: true,
+            message: `Database migration (${action}) gestart`,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Run migration in background
+        setImmediate(async () => {
+            try {
+                console.log(`🚀 Starting ${action} migration...`);
+                
+                let schemaSuccess = true;
+                let dataSuccess = true;
+                
+                if (action === 'schema' || action === 'both') {
+                    schemaSuccess = await runSchemaMigration();
+                }
+                
+                if ((action === 'data' || action === 'both') && schemaSuccess) {
+                    dataSuccess = await runDataMigration();
+                }
+                
+                console.log(`✅ Migration completed: schema=${schemaSuccess}, data=${dataSuccess}`);
+                
+            } catch (error) {
+                console.error('❌ Migration failed:', error);
+            }
+        });
+        
+    } catch (error) {
+        console.error('Migration endpoint error:', error);
+        res.status(500).json({ error: 'Migration failed to start' });
+    }
+});
+
+// Migration status check
+router.get('/migrate/status', async (req, res) => {
+    try {
+        // Check if unified tables exist
+        const tablesResult = await query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name IN ('persons', 'person_company_roles', 'vehicles_new')
+            ORDER BY table_name
+        `);
+        
+        const existingTables = tablesResult.rows.map(r => r.table_name);
+        const migrationComplete = existingTables.length === 3;
+        
+        // Get row counts if tables exist
+        let counts = {};
+        if (migrationComplete) {
+            try {
+                const [personsResult, rolesResult, vehiclesResult] = await Promise.all([
+                    query('SELECT COUNT(*) FROM persons'),
+                    query('SELECT COUNT(*) FROM person_company_roles'), 
+                    query('SELECT COUNT(*) FROM vehicles_new')
+                ]);
+                
+                counts = {
+                    persons: parseInt(personsResult.rows[0].count),
+                    person_company_roles: parseInt(rolesResult.rows[0].count),
+                    vehicles_new: parseInt(vehiclesResult.rows[0].count)
+                };
+            } catch (countError) {
+                console.error('Error getting counts:', countError);
+            }
+        }
+        
+        res.json({
+            migration_status: migrationComplete ? 'completed' : 'pending',
+            existing_tables: existingTables,
+            row_counts: counts,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Migration status error:', error);
+        res.status(500).json({ error: 'Could not check migration status' });
     }
 });
 
