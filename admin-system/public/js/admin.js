@@ -6365,6 +6365,19 @@ class AdminApp {
         }).format(amount);
     }
 
+    // Escape HTML to prevent XSS attacks
+    escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        };
+        return String(text).replace(/[&<>"']/g, (m) => map[m]);
+    }
+
     // Format price based on VAT settings
     formatPrice(basePrice, options = {}) {
         const { showVATStatus = false, forceExclusive = false } = options;
