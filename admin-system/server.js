@@ -157,6 +157,14 @@ app.use('/api/website-leads', require('./routes/websiteLeads'));
 // Deployment endpoints (minimal auth for remote updates)
 app.use('/api/deploy', require('./routes/deployment'));
 
+// Favicon routes for browser compatibility
+app.get('/favicon.ico', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+});
+app.get('/favicon.png', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'favicon.png'));
+});
+
 // Catch-all voor frontend routing (SPA) - exclude static files
 app.get('*', (req, res) => {
     // Don't serve index.html for static files (js, css, images, etc.)
