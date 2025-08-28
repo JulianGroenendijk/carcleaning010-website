@@ -5529,19 +5529,6 @@ class AdminApp {
                             </div>
                             <div class="card-body">
                                 <div class="mb-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="vat-enabled" 
-                                               ${settings.vat_enabled ? 'checked' : ''}>
-                                        <label class="form-check-label" for="vat-enabled">
-                                            <strong>BTW inschakelen</strong>
-                                        </label>
-                                        <div class="form-text">
-                                            Wanneer uitgeschakeld verdwijnen alle BTW vermeldingen van offertes en facturen
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-4 ${settings.vat_enabled ? '' : 'd-none'}" id="vat-settings">
                                     <label for="vat-percentage" class="form-label">BTW Percentage</label>
                                     <div class="input-group">
                                         <input type="number" class="form-control" id="vat-percentage" 
@@ -5549,14 +5536,14 @@ class AdminApp {
                                         <span class="input-group-text">%</span>
                                     </div>
                                     <div class="form-text">
-                                        Standaard BTW percentage voor nieuwe offertes en facturen
+                                        Standaard BTW percentage voor nieuwe offertes (meestal 21% in Nederland)
                                     </div>
                                 </div>
                                 
                                 <div class="alert alert-info">
                                     <i class="bi bi-info-circle"></i>
-                                    <strong>Let op:</strong> Wijzigingen worden toegepast op alle nieuwe offertes en facturen. 
-                                    Bestaande documenten behouden hun oorspronkelijke BTW instellingen.
+                                    <strong>BTW Status:</strong> BTW wordt automatisch geactiveerd zodra je een BTW-nummer invult bij de bedrijfsgegevens. 
+                                    Zonder BTW-nummer worden documenten als "kwitantie" weergegeven.
                                 </div>
                                 
                                 <div class="d-flex justify-content-end">
@@ -5786,17 +5773,6 @@ class AdminApp {
     }
     
     setupSettingsEventListeners() {
-        // VAT toggle
-        const vatToggle = document.getElementById('vat-enabled');
-        vatToggle?.addEventListener('change', (e) => {
-            const vatSettings = document.getElementById('vat-settings');
-            if (e.target.checked) {
-                vatSettings?.classList.remove('d-none');
-            } else {
-                vatSettings?.classList.add('d-none');
-            }
-        });
-        
         // Save settings button
         const saveSettingsBtn = document.getElementById('save-settings-btn');
         saveSettingsBtn?.addEventListener('click', () => this.saveSettings());
@@ -5820,11 +5796,9 @@ class AdminApp {
     async saveSettings() {
         console.log('💾 Save system settings');
         
-        const vatEnabled = document.getElementById('vat-enabled').checked;
         const vatPercentage = parseFloat(document.getElementById('vat-percentage').value) || 21;
         
         const settings = {
-            vat_enabled: vatEnabled,
             vat_percentage: vatPercentage
         };
         
